@@ -22,6 +22,7 @@
                 <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Overview Dashboard</a>
                 <a href="{{ url_for('tracker_page', tracker_type='I20') }}" class="{{ 'active' if tracker_type|default('') == 'I20' else '' }}">I20 Tracker</a>
                 <a href="{{ url_for('tracker_page', tracker_type='D20') }}" class="{{ 'active' if tracker_type|default('') == 'D20' else '' }}">D20 Tracker</a>
+                <a href="{{ url_for('partners_page') }}" class="{{ 'active' if request.endpoint == 'partners_page' else '' }}">Master Partner Dashboard</a>
                 {% if current_user.role == 'admin' %}
                 <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Data Validation / Settings</a>
                 <a href="{{ url_for('import_export_page') }}" class="{{ 'active' if request.endpoint == 'import_export_page' else '' }}">Import / Export</a>

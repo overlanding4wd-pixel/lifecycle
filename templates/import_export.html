@@ -62,5 +62,39 @@
             </form>
         </section>
     </div>
+
+    <div class="two-column">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Import Master Partner Dashboard</h2>
+                    <p>Upload <strong>Partner Dashboard.xlsx</strong>. The app reads the Partners sheet and upserts partner master data only.</p>
+                </div>
+            </div>
+            <form class="record-form" data-partner-import-form>
+                <label>
+                    Partner Dashboard Excel file
+                    <input type="file" name="file" accept=".xlsx" required>
+                </label>
+                <button class="button primary" type="submit">Import master partners</button>
+            </form>
+            <div class="import-result" data-partner-import-result></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Partner import history</h2>
+                    <p>Recent master partner imports and create/update counts.</p>
+                </div>
+            </div>
+            <div class="history-list" data-partner-import-history></div>
+            <div class="admin-insights">
+                <h3>Data quality checks</h3>
+                <p><span data-partners-without-link>0</span> partner records currently have no workbook link.</p>
+                <p><span data-unmatched-workbook>0</span> lifecycle workbook is not linked to a master partner.</p>
+            </div>
+        </section>
+    </div>
 </section>
 {% endblock %}

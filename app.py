@@ -103,6 +103,40 @@ RECORD_FIELDS = [
     "additional_fields",
 ]
 
+PARTNER_FIELDS = [
+    "partner_name",
+    "owner",
+    "territory",
+    "master_stage",
+    "date_of_stage_change",
+    "age_of_stage",
+    "days_overdue",
+    "workbook_link",
+    "sf_account",
+    "next_steps_notes",
+    "partner_type",
+    "csm_involved",
+]
+
+PARTNER_HEADER_ALIASES = {
+    "partner": "partner_name",
+    "owner": "owner",
+    "territory": "territory",
+    "active": "master_stage",
+    "current partner stage": "master_stage",
+    "date of stage change": "date_of_stage_change",
+    "age of stage": "age_of_stage",
+    "days overdue": "days_overdue",
+    "workbook link": "workbook_link",
+    "sf account": "sf_account",
+    "next steps notes": "next_steps_notes",
+    "next steps note": "next_steps_notes",
+    "next steps": "next_steps_notes",
+    "notes": "next_steps_notes",
+    "partner type": "partner_type",
+    "csm involved": "csm_involved",
+}
+
 
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
@@ -144,6 +178,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     @role_required("admin")
     def import_export_page() -> str:
         return render_template("import_export.html", page_title="Import / Export")
+
+    @app.route("/partners")
+    def partners_page() -> str:
+        return render_template("partners.html", page_title="Master Partner Dashboard")
 
     @app.route("/admin")
     @role_required("admin")
@@ -392,6 +430,115 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             imported += 1
         return jsonify({"imported": imported, "errors": errors})
 
+    @app.get("/api/partners")
+    def list_partners() -> Response:
+        filters = parse_partner_filters(request.args)
+        partners = query_partners(app.config["DATABASE"], filters)
+        summary = partner_summary(app.config["DATABASE"], partners)
+        return jsonify({"partners": partners, "summary": summary})
+
+    @app.get("/api/partners/options")
+    def partner_options() -> Response:
+        db = get_db(app.config["DATABASE"])
+        options = {}
+        for key, column in {
+            "owners": "owner",
+            "territories": "territory",
+            "stages": "master_stage",
+            "partnerTypes": "partner_type",
+            "csmInvolved": "csm_involved",
+        }.items():
+            rows = db.execute(
+                f"SELECT DISTINCT {column} AS value FROM partners WHERE COALESCE({column}, '') != '' ORDER BY {column}"
+            ).fetchall()
+            options[key] = [row["value"] for row in rows]
+        db.close()
+        return jsonify(options)
+
+    @app.get("/api/partners/<int:partner_id>")
+    def get_partner(partner_id: int) -> Response:
+        db = get_db(app.config["DATABASE"])
+        row = db.execute("SELECT * FROM partners WHERE id = ?", (partner_id,)).fetchone()
+        db.close()
+        if not row:
+            return jsonify({"error": "Partner not found."}), 404
+        return jsonify({"partner": partner_to_dict(row)})
+
+    @app.post("/api/partners/import")
+    @role_required("admin")
+    def import_partners() -> Response:
+        upload = request.files.get("file")
+        if not upload or not upload.filename:
+            return jsonify({"error": "Upload the Partner Dashboard Excel file."}), 400
+        if not upload.filename.lower().endswith(".xlsx"):
+            return jsonify({"error": "Partner import expects an .xlsx workbook."}), 400
+        try:
+            rows = parse_partner_dashboard_file(upload)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        created, updated, errors = upsert_partner_rows(app.config["DATABASE"], rows, session["user"]["name"], upload.filename)
+        return jsonify({"created": created, "updated": updated, "errors": errors})
+
+    @app.get("/api/partner-import-history")
+    @role_required("admin")
+    def partner_import_history() -> Response:
+        db = get_db(app.config["DATABASE"])
+        rows = db.execute(
+            """
+            SELECT * FROM partner_import_history
+            ORDER BY imported_at DESC
+            LIMIT 25
+            """
+        ).fetchall()
+        db.close()
+        return jsonify({"history": [partner_import_history_to_dict(row) for row in rows]})
+
+    @app.get("/api/lifecycle-workbook")
+    def get_lifecycle_workbook() -> Response:
+        workbook = load_default_lifecycle_workbook(app.config["DATABASE"])
+        return jsonify({"workbook": workbook})
+
+    @app.post("/api/lifecycle-workbook/link")
+    @role_required("admin", "editor")
+    def link_lifecycle_workbook() -> Response:
+        payload = request.get_json(force=True)
+        partner_id = int(payload.get("partnerId") or payload.get("partner_id") or 0)
+        if partner_id <= 0:
+            return jsonify({"error": "Choose a partner to link."}), 400
+        db = get_db(app.config["DATABASE"])
+        partner = db.execute("SELECT * FROM partners WHERE id = ?", (partner_id,)).fetchone()
+        if not partner:
+            db.close()
+            return jsonify({"error": "Partner not found."}), 404
+        now = utc_now()
+        db.execute(
+            """
+            UPDATE lifecycle_workbooks
+            SET partner_id = ?, partner_name = ?, master_workbook_link = ?, updated_at = ?
+            WHERE id = 1
+            """,
+            (partner_id, partner["partner_name"], partner["workbook_link"], now),
+        )
+        db.commit()
+        db.close()
+        return jsonify({"workbook": load_default_lifecycle_workbook(app.config["DATABASE"])})
+
+    @app.post("/api/lifecycle-workbook/unlink")
+    @role_required("admin", "editor")
+    def unlink_lifecycle_workbook() -> Response:
+        db = get_db(app.config["DATABASE"])
+        db.execute(
+            """
+            UPDATE lifecycle_workbooks
+            SET partner_id = NULL, partner_name = '', master_workbook_link = '', updated_at = ?
+            WHERE id = 1
+            """,
+            (utc_now(),),
+        )
+        db.commit()
+        db.close()
+        return jsonify({"workbook": load_default_lifecycle_workbook(app.config["DATABASE"])})
+
     @app.get("/api/export")
     @role_required("admin", "editor", "viewer")
     def export_records() -> Response:
@@ -521,6 +668,57 @@ def init_db(database_path: str) -> None:
         )
         """
     )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS partners (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            partner_name TEXT NOT NULL UNIQUE,
+            owner TEXT,
+            territory TEXT,
+            master_stage TEXT,
+            date_of_stage_change TEXT,
+            age_of_stage INTEGER,
+            days_overdue INTEGER,
+            workbook_link TEXT,
+            sf_account TEXT,
+            next_steps_notes TEXT,
+            partner_type TEXT,
+            csm_involved TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lifecycle_workbooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workbook_name TEXT NOT NULL,
+            partner_id INTEGER,
+            partner_name TEXT,
+            master_workbook_link TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(partner_id) REFERENCES partners(id) ON DELETE SET NULL
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS partner_import_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
+            imported_at TEXT NOT NULL,
+            imported_by TEXT,
+            created_count INTEGER NOT NULL DEFAULT 0,
+            updated_count INTEGER NOT NULL DEFAULT 0,
+            error_count INTEGER NOT NULL DEFAULT 0,
+            notes TEXT
+        )
+        """
+    )
+    ensure_partner_columns(db)
+    ensure_default_lifecycle_workbook(db)
     ensure_tracker_record_columns(db)
     seed_options(db)
     db.commit()
@@ -915,6 +1113,318 @@ def flatten_export_records(records: list[dict[str, Any]]) -> list[dict[str, Any]
         row.update(record.get("additionalFields", {}))
         flattened.append(row)
     return flattened
+
+
+def ensure_partner_columns(db: sqlite3.Connection) -> None:
+    existing = {row[1] for row in db.execute("PRAGMA table_info(partners)").fetchall()}
+    columns = {
+        "partner_name": "TEXT",
+        "owner": "TEXT",
+        "territory": "TEXT",
+        "master_stage": "TEXT",
+        "date_of_stage_change": "TEXT",
+        "age_of_stage": "INTEGER",
+        "days_overdue": "INTEGER",
+        "workbook_link": "TEXT",
+        "sf_account": "TEXT",
+        "next_steps_notes": "TEXT",
+        "partner_type": "TEXT",
+        "csm_involved": "TEXT",
+        "created_at": "TEXT",
+        "updated_at": "TEXT",
+    }
+    for name, column_type in columns.items():
+        if name not in existing:
+            db.execute(f"ALTER TABLE partners ADD COLUMN {name} {column_type}")
+
+
+def ensure_default_lifecycle_workbook(db: sqlite3.Connection) -> None:
+    now = utc_now()
+    db.execute(
+        """
+        INSERT OR IGNORE INTO lifecycle_workbooks
+            (id, workbook_name, partner_id, partner_name, master_workbook_link, created_at, updated_at)
+        VALUES (1, 'Lifecycle Tracker', NULL, '', '', ?, ?)
+        """,
+        (now, now),
+    )
+
+
+def parse_partner_filters(args: Any) -> dict[str, Any]:
+    return {
+        "search": clean_text(args.get("search")),
+        "owner": clean_text(args.get("owner")),
+        "territory": clean_text(args.get("territory")),
+        "master_stage": clean_text(args.get("masterStage") or args.get("master_stage")),
+        "partner_type": clean_text(args.get("partnerType") or args.get("partner_type")),
+        "csm_involved": clean_text(args.get("csmInvolved") or args.get("csm_involved")),
+        "overdue": clean_text(args.get("overdue")).lower() in {"true", "1", "yes"},
+        "sort": clean_text(args.get("sort")) or "partnerName",
+        "direction": "ASC" if clean_text(args.get("direction")).lower() == "asc" else "DESC",
+    }
+
+
+def query_partners(database_path: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
+    clauses = []
+    params: list[Any] = []
+    if filters.get("search"):
+        clauses.append("(p.partner_name LIKE ? OR p.owner LIKE ? OR p.sf_account LIKE ? OR p.next_steps_notes LIKE ?)")
+        search = f"%{filters['search']}%"
+        params.extend([search, search, search, search])
+    for key, column in (
+        ("owner", "owner"),
+        ("territory", "territory"),
+        ("master_stage", "master_stage"),
+        ("partner_type", "partner_type"),
+        ("csm_involved", "csm_involved"),
+    ):
+        if filters.get(key):
+            clauses.append(f"p.{column} = ?")
+            params.append(filters[key])
+    if filters.get("overdue"):
+        clauses.append("COALESCE(p.days_overdue, 0) > 0")
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sort_map = {
+        "partnerName": "p.partner_name",
+        "owner": "p.owner",
+        "territory": "p.territory",
+        "masterStage": "p.master_stage",
+        "partnerType": "p.partner_type",
+        "daysOverdue": "COALESCE(p.days_overdue, 0)",
+        "dateOfStageChange": "p.date_of_stage_change",
+        "updatedAt": "p.updated_at",
+    }
+    sort_column = sort_map.get(filters.get("sort"), "partner_name")
+    db = get_db(database_path)
+    rows = db.execute(
+        f"""
+        SELECT p.*, COUNT(lw.id) AS linked_lifecycle_count
+        FROM partners p
+        LEFT JOIN lifecycle_workbooks lw ON lw.partner_id = p.id
+        {where}
+        GROUP BY p.id
+        ORDER BY {sort_column} {filters['direction']}, p.partner_name ASC
+        """,
+        params,
+    ).fetchall()
+    db.close()
+    return [partner_to_dict(row) for row in rows]
+
+
+def partner_summary(database_path: str, partners: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "totalPartners": len(partners),
+        "byStage": group_count(partners, "masterStage"),
+        "byOwner": group_count(partners, "owner"),
+        "byTerritory": group_count(partners, "territory"),
+        "overduePartners": sum(1 for partner in partners if partner.get("daysOverdue", 0) > 0),
+        "withLifecycleWorkbook": sum(1 for partner in partners if partner.get("linkedLifecycleCount", 0) > 0),
+        "withoutLifecycleWorkbook": sum(1 for partner in partners if partner.get("linkedLifecycleCount", 0) == 0),
+        "qualifiedOutPartners": sum(1 for partner in partners if clean_text(partner.get("masterStage")).lower() == "qualified out"),
+        "activePartners": sum(1 for partner in partners if clean_text(partner.get("masterStage")).lower() != "qualified out"),
+    }
+
+
+def partner_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "partnerName": row["partner_name"] or "",
+        "owner": row["owner"] or "",
+        "territory": row["territory"] or "",
+        "masterStage": row["master_stage"] or "",
+        "dateOfStageChange": row["date_of_stage_change"] or "",
+        "ageOfStage": row["age_of_stage"] if row["age_of_stage"] is not None else "",
+        "daysOverdue": row["days_overdue"] if row["days_overdue"] is not None else 0,
+        "workbookLink": row["workbook_link"] or "",
+        "sfAccount": row["sf_account"] or "",
+        "nextStepsNotes": row["next_steps_notes"] or "",
+        "partnerType": row["partner_type"] or "",
+        "csmInvolved": row["csm_involved"] or "",
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+        "linkedLifecycleCount": row["linked_lifecycle_count"] if "linked_lifecycle_count" in row.keys() else 0,
+        "isWorkbookLinkUrl": is_url(row["workbook_link"] or ""),
+    }
+
+
+def load_default_lifecycle_workbook(database_path: str) -> dict[str, Any]:
+    db = get_db(database_path)
+    row = db.execute(
+        """
+        SELECT lw.*, p.owner, p.territory, p.master_stage, p.date_of_stage_change,
+               p.age_of_stage, p.days_overdue, p.workbook_link, p.sf_account,
+               p.next_steps_notes, p.partner_type, p.csm_involved,
+               p.created_at AS partner_created_at, p.updated_at AS partner_updated_at
+        FROM lifecycle_workbooks lw
+        LEFT JOIN partners p ON p.id = lw.partner_id
+        WHERE lw.id = 1
+        """
+    ).fetchone()
+    db.close()
+    if not row:
+        db = get_db(database_path)
+        ensure_default_lifecycle_workbook(db)
+        db.commit()
+        db.close()
+        return load_default_lifecycle_workbook(database_path)
+    partner = None
+    if row["partner_id"]:
+        partner = {
+            "id": row["partner_id"],
+            "partnerName": row["partner_name"] or "",
+            "owner": row["owner"] or "",
+            "territory": row["territory"] or "",
+            "masterStage": row["master_stage"] or "",
+            "dateOfStageChange": row["date_of_stage_change"] or "",
+            "ageOfStage": row["age_of_stage"] if row["age_of_stage"] is not None else "",
+            "daysOverdue": row["days_overdue"] if row["days_overdue"] is not None else 0,
+            "workbookLink": row["workbook_link"] or row["master_workbook_link"] or "",
+            "sfAccount": row["sf_account"] or "",
+            "nextStepsNotes": row["next_steps_notes"] or "",
+            "partnerType": row["partner_type"] or "",
+            "csmInvolved": row["csm_involved"] or "",
+            "updatedAt": row["partner_updated_at"] or "",
+            "isWorkbookLinkUrl": is_url(row["workbook_link"] or row["master_workbook_link"] or ""),
+        }
+    return {
+        "id": row["id"],
+        "workbookName": row["workbook_name"],
+        "partnerId": row["partner_id"],
+        "partnerName": row["partner_name"] or "",
+        "masterWorkbookLink": row["master_workbook_link"] or "",
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+        "partner": partner,
+    }
+
+
+def parse_partner_dashboard_file(upload: Any) -> list[dict[str, Any]]:
+    if load_workbook is None:
+        raise ValueError("Partner import requires openpyxl.")
+    workbook = load_workbook(upload.stream, data_only=True)
+    if "Partners" not in workbook.sheetnames:
+        raise ValueError("The workbook must contain a Partners sheet.")
+    sheet = workbook["Partners"]
+    rows = list(sheet.iter_rows(values_only=True))
+    if not rows:
+        return []
+    header_index = find_partner_header_row(rows)
+    headers = [PARTNER_HEADER_ALIASES.get(normalize_header(value), "") for value in rows[header_index]]
+    imported_rows = []
+    for row in rows[header_index + 1 :]:
+        mapped: dict[str, Any] = {}
+        for index, value in enumerate(row[: len(headers)]):
+            field = headers[index]
+            if field:
+                mapped[field] = clean_partner_value(value)
+        if any(clean_text(value) for value in mapped.values()):
+            imported_rows.append(mapped)
+    return imported_rows
+
+
+def find_partner_header_row(rows: list[tuple[Any, ...]]) -> int:
+    for index, row in enumerate(rows[:20]):
+        normalized = {normalize_header(value) for value in row if clean_text(value)}
+        if {"partner", "owner", "territory", "workbook link"}.issubset(normalized):
+            return index
+    return 0
+
+
+def upsert_partner_rows(database_path: str, rows: list[dict[str, Any]], user: str, filename: str) -> tuple[int, int, list[dict[str, Any]]]:
+    db = get_db(database_path)
+    created = 0
+    updated = 0
+    errors: list[dict[str, Any]] = []
+    now = utc_now()
+    for row_number, row in enumerate(rows, start=2):
+        partner_name = clean_text(row.get("partner_name"))
+        if not partner_name:
+            errors.append({"row": row_number, "errors": ["Partner name is required."]})
+            continue
+        values = {
+            "partner_name": partner_name,
+            "owner": clean_text(row.get("owner")),
+            "territory": clean_text(row.get("territory")),
+            "master_stage": clean_text(row.get("master_stage")),
+            "date_of_stage_change": clean_date(row.get("date_of_stage_change")),
+            "age_of_stage": clean_int(row.get("age_of_stage")),
+            "days_overdue": clean_int(row.get("days_overdue")),
+            "workbook_link": clean_text(row.get("workbook_link")),
+            "sf_account": clean_text(row.get("sf_account")),
+            "next_steps_notes": clean_text(row.get("next_steps_notes")),
+            "partner_type": clean_text(row.get("partner_type")),
+            "csm_involved": clean_text(row.get("csm_involved")),
+        }
+        existing = db.execute("SELECT id FROM partners WHERE lower(partner_name) = lower(?)", (partner_name,)).fetchone()
+        if existing:
+            db.execute(
+                f"""
+                UPDATE partners
+                SET {', '.join([field + ' = ?' for field in PARTNER_FIELDS])}, updated_at = ?
+                WHERE id = ?
+                """,
+                (*[values[field] for field in PARTNER_FIELDS], now, existing["id"]),
+            )
+            updated += 1
+        else:
+            db.execute(
+                f"""
+                INSERT INTO partners ({', '.join(PARTNER_FIELDS)}, created_at, updated_at)
+                VALUES ({', '.join(['?'] * len(PARTNER_FIELDS))}, ?, ?)
+                """,
+                (*[values[field] for field in PARTNER_FIELDS], now, now),
+            )
+            created += 1
+    db.execute(
+        """
+        INSERT INTO partner_import_history
+            (filename, imported_at, imported_by, created_count, updated_count, error_count, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (filename, now, user, created, updated, len(errors), json.dumps({"errors": errors[:25]})),
+    )
+    db.commit()
+    db.close()
+    return created, updated, errors
+
+
+def clean_partner_value(value: Any) -> str:
+    text = clean_text(value)
+    if text.startswith("#") and text.endswith("?"):
+        return ""
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return text
+
+
+def clean_int(value: Any) -> int | None:
+    text = clean_partner_value(value)
+    if not text:
+        return None
+    try:
+        return int(float(text))
+    except ValueError:
+        return None
+
+
+def is_url(value: str) -> bool:
+    text = clean_text(value).lower()
+    return text.startswith("http://") or text.startswith("https://")
+
+
+def partner_import_history_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "filename": row["filename"] or "",
+        "importedAt": row["imported_at"],
+        "importedBy": row["imported_by"] or "",
+        "createdCount": row["created_count"],
+        "updatedCount": row["updated_count"],
+        "errorCount": row["error_count"],
+        "notes": row["notes"] or "",
+    }
 
 
 if __name__ == "__main__":

@@ -46,6 +46,18 @@ The app creates `lifecycle_tracker.db` automatically on first request and seeds 
 
 CSV and Excel imports map common workbook headers such as `Opportunity Name`, `Account Name`, `Owner`, `Stage`, `Status`, `Due Date`, and `Next Action` to app fields. The uploaded Lifecycle Workbook is also supported directly: when importing an `.xlsx`, the app selects the matching `I20 Tracker` or `D20 Tracker` sheet and maps workbook columns including `Activity`, `who @ cortave`, `Start Day`, `Actual Start Date`, `Target Due Day`, `cortave Owner`, `Innovator Owner`, `Link`, and `Notes`. Unrecognised workbook columns are preserved in the record's additional imported fields JSON so workbook-specific columns are not lost.
 
+## Master Partner Dashboard integration
+
+The app includes an add-on module for `Partner Dashboard.xlsx`:
+
+- New `Partner` master data table populated from the workbook's `Partners` sheet
+- Import mapping for Partner, Owner, Territory, Active stage, Date Of Stage Change, Age of Stage, Days Overdue, Workbook Link, SF Account, Next Steps/notes, Partner Type, and CSM Involved
+- Partner imports upsert by partner name so re-importing refreshes master data without touching I20/D20 tracker records
+- A `lifecycle_workbooks` link table associates this Lifecycle Tracker workspace with one imported partner now and can support more workbooks later
+- The Overview and tracker pages show a Linked Master Partner panel with search, link, unlink, and live partner summary details
+- The Master Partner Dashboard page provides searchable/filterable partner records, summary cards, and lifecycle link status
+- Import / Export includes Master Partner Dashboard re-import controls and import history
+
 ## Production hardening ideas
 
 - Replace the MVP role switcher with SSO or your identity provider

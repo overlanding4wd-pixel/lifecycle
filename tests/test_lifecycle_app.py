@@ -148,6 +148,103 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertEqual(records[0]["innovatorOwner"], "Innovator contact")
         self.assertEqual(records[0]["link"], "https://example.com")
 
+    def test_partner_dashboard_import_upsert_and_linking(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Partners"
+        sheet.append([
+            "Partner",
+            " Owner ",
+            "Territory",
+            "Active",
+            "Date Of Stage Change",
+            "Age of Stage",
+            "Days Overdue",
+            "Workbook Link",
+            "SF Account",
+            "Next Steps/notes",
+            "Partner Type ",
+            "CSM Involved ",
+        ])
+        sheet.append([
+            "Deloitte",
+            "Mark",
+            "EMEA",
+            "Onboarding",
+            "2023-06-01",
+            "#NAME?",
+            12,
+            "Deloitte Workbook",
+            "Existing account",
+            "Talk to account team",
+            "Martech",
+            "No",
+        ])
+        sheet.append([
+            "Deloitte",
+            "Melissa",
+            "Global",
+            "Recruitment",
+            "2023-07-01",
+            4,
+            0,
+            "https://example.com/deloitte",
+            "Updated account",
+            "Updated notes",
+            "Technology",
+            "Yes",
+        ])
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        response = self.client.post(
+            "/api/partners/import",
+            data={"file": (output, "Partner Dashboard.xlsx")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["created"], 1)
+        self.assertEqual(payload["updated"], 1)
+        self.assertEqual(payload["errors"], [])
+
+        partners_response = self.client.get("/api/partners?search=Deloitte")
+        partners = partners_response.get_json()["partners"]
+        self.assertEqual(len(partners), 1)
+        self.assertEqual(partners[0]["owner"], "Melissa")
+        self.assertEqual(partners[0]["masterStage"], "Recruitment")
+        self.assertEqual(partners[0]["workbookLink"], "https://example.com/deloitte")
+        self.assertTrue(partners[0]["isWorkbookLinkUrl"])
+
+        link_response = self.client.post("/api/lifecycle-workbook/link", json={"partnerId": partners[0]["id"]})
+        self.assertEqual(link_response.status_code, 200)
+        workbook_response = self.client.get("/api/lifecycle-workbook")
+        linked = workbook_response.get_json()["workbook"]
+        self.assertEqual(linked["partner"]["partnerName"], "Deloitte")
+        self.assertEqual(linked["partner"]["owner"], "Melissa")
+
+        unlink_response = self.client.post("/api/lifecycle-workbook/unlink", json={})
+        self.assertEqual(unlink_response.status_code, 200)
+        self.assertIsNone(unlink_response.get_json()["workbook"]["partner"])
+
+    def test_partner_dashboard_requires_partners_sheet(self):
+        workbook = Workbook()
+        workbook.active.title = "Wrong Sheet"
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        response = self.client.post(
+            "/api/partners/import",
+            data={"file": (output, "Partner Dashboard.xlsx")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Partners sheet", response.get_json()["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

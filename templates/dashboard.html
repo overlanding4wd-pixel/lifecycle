@@ -2,6 +2,7 @@
 
 {% block content %}
 <section class="dashboard" data-page="dashboard">
+    {% include "_linked_partner.html" %}
     <div class="card-grid metric-grid">
         <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}">
             <span>Total I20 records</span>

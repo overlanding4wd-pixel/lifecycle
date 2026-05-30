@@ -14,6 +14,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (page === "tracker") initTracker();
     if (page === "settings") initSettings();
     if (page === "import-export") initImportExport();
+    if (page === "partners") initPartnerDashboard();
+    if (document.querySelector("[data-linked-partner-panel]")) initLinkedPartnerPanel();
 });
 
 async function api(url, options = {}) {
@@ -440,6 +442,8 @@ async function deleteOption() {
 
 function initImportExport() {
     document.querySelector("[data-import-form]").addEventListener("submit", importRecords);
+    document.querySelector("[data-partner-import-form]")?.addEventListener("submit", importPartners);
+    loadPartnerImportAdminSummary();
     document.querySelectorAll("[data-download-export]").forEach((button) => {
         button.addEventListener("click", () => {
             const form = document.querySelector("[data-export-form]");
@@ -466,6 +470,240 @@ async function importRecords(event) {
     } catch (error) {
         result.textContent = error.message;
     }
+}
+
+
+const partnerState = {
+    partners: [],
+    sort: "partnerName",
+    direction: "asc",
+    options: {},
+};
+
+async function initLinkedPartnerPanel() {
+    const panel = document.querySelector("[data-linked-partner-panel]");
+    if (!panel) return;
+    const search = panel.querySelector("[data-partner-search]");
+    search.addEventListener("input", debounce(() => searchPartnersForLink(search.value), 250));
+    await renderLinkedPartnerPanel();
+}
+
+async function renderLinkedPartnerPanel() {
+    const panel = document.querySelector("[data-linked-partner-panel]");
+    if (!panel) return;
+    const data = await api("/api/lifecycle-workbook");
+    const target = panel.querySelector("[data-linked-partner-summary]");
+    const partner = data.workbook.partner;
+    if (!partner) {
+        target.innerHTML = `<p class="empty-state">No master partner linked yet. Search and select a partner to connect it.</p>`;
+        return;
+    }
+    target.innerHTML = `
+        <div class="partner-card-header">
+            <div>
+                <p class="eyebrow">Master Partner</p>
+                <h3>${escapeHtml(partner.partnerName)}</h3>
+            </div>
+            <button class="button ghost small" data-unlink-partner>Unlink</button>
+        </div>
+        <div class="partner-detail-grid">
+            ${partnerDetail("Owner", partner.owner)}
+            ${partnerDetail("Territory", partner.territory)}
+            ${partnerDetail("Master stage", stageBadge(partner.masterStage), true)}
+            ${partnerDetail("Date of stage change", partner.dateOfStageChange)}
+            ${partnerDetail("Age of stage", partner.ageOfStage)}
+            ${partnerDetail("Days overdue", partner.daysOverdue ? `<strong>${partner.daysOverdue}</strong>` : "0", true)}
+            ${partnerDetail("SF Account", partner.sfAccount)}
+            ${partnerDetail("Partner type", partner.partnerType)}
+            ${partnerDetail("CSM involved", partner.csmInvolved)}
+            ${partnerDetail("Workbook link", workbookLink(partner.workbookLink, partner.isWorkbookLinkUrl), true)}
+        </div>
+        <div class="partner-notes"><strong>Next steps / notes</strong><p>${escapeHtml(partner.nextStepsNotes || "No notes imported.")}</p></div>
+    `;
+    target.querySelector("[data-unlink-partner]").addEventListener("click", async () => {
+        await api("/api/lifecycle-workbook/unlink", { method: "POST", body: JSON.stringify({}) });
+        await renderLinkedPartnerPanel();
+    });
+}
+
+async function searchPartnersForLink(term) {
+    const panel = document.querySelector("[data-linked-partner-panel]");
+    const target = panel.querySelector("[data-partner-search-results]");
+    const query = term.trim();
+    if (query.length < 2) {
+        target.innerHTML = "";
+        return;
+    }
+    const data = await api(`/api/partners?search=${encodeURIComponent(query)}&sort=partnerName&direction=asc`);
+    target.innerHTML = data.partners.slice(0, 8).map((partner) => `
+        <button class="partner-result" data-link-partner="${partner.id}">
+            <strong>${escapeHtml(partner.partnerName)}</strong>
+            <span>${escapeHtml([partner.owner, partner.territory, partner.masterStage].filter(Boolean).join(" · "))}</span>
+        </button>
+    `).join("") || `<p class="empty-state">No partner matches found.</p>`;
+    target.querySelectorAll("[data-link-partner]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            await api("/api/lifecycle-workbook/link", { method: "POST", body: JSON.stringify({ partnerId: button.dataset.linkPartner }) });
+            panel.querySelector("[data-partner-search]").value = "";
+            target.innerHTML = "";
+            await renderLinkedPartnerPanel();
+        });
+    });
+}
+
+async function initPartnerDashboard() {
+    await loadPartnerFilterOptions();
+    const form = document.querySelector("[data-partner-filters]");
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        loadPartnerDashboard();
+    });
+    document.querySelector("[data-reset-partner-filters]").addEventListener("click", () => {
+        form.reset();
+        loadPartnerDashboard();
+    });
+    document.querySelectorAll("[data-partner-sort]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const nextSort = button.dataset.partnerSort;
+            partnerState.direction = partnerState.sort === nextSort && partnerState.direction === "asc" ? "desc" : "asc";
+            partnerState.sort = nextSort;
+            loadPartnerDashboard();
+        });
+    });
+    await loadPartnerDashboard();
+}
+
+async function loadPartnerFilterOptions() {
+    partnerState.options = await api("/api/partners/options");
+    document.querySelectorAll("[data-partner-filter-options]").forEach((select) => {
+        const key = select.dataset.partnerFilterOptions;
+        const first = select.querySelector("option")?.cloneNode(true);
+        select.innerHTML = "";
+        if (first) select.appendChild(first);
+        (partnerState.options[key] || []).forEach((value) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+        });
+    });
+}
+
+function currentPartnerParams() {
+    const form = document.querySelector("[data-partner-filters]");
+    const params = new URLSearchParams({ sort: partnerState.sort, direction: partnerState.direction });
+    new FormData(form).forEach((value, key) => {
+        if (value) params.set(key, value);
+    });
+    return params;
+}
+
+async function loadPartnerDashboard() {
+    const data = await api(`/api/partners?${currentPartnerParams().toString()}`);
+    partnerState.partners = data.partners;
+    renderPartnerMetrics(data.summary || {});
+    renderPartnerSummaryList("[data-partner-stage-summary]", data.summary?.byStage || {});
+    renderPartnerSummaryList("[data-partner-owner-summary]", data.summary?.byOwner || {});
+    renderPartnerSummaryList("[data-partner-territory-summary]", data.summary?.byTerritory || {});
+    renderPartnerTable();
+}
+
+function renderPartnerMetrics(summary) {
+    ["totalPartners", "overduePartners", "withLifecycleWorkbook", "withoutLifecycleWorkbook", "qualifiedOutPartners", "activePartners"].forEach((key) => {
+        const element = document.querySelector(`[data-partner-metric="${key}"]`);
+        if (element) element.textContent = summary[key] || 0;
+    });
+}
+
+function renderPartnerSummaryList(selector, counts) {
+    const target = document.querySelector(selector);
+    if (!target) return;
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    target.innerHTML = entries.length ? entries.map(([label, count]) => `
+        <div class="summary-row"><span>${escapeHtml(label)}</span><strong>${count}</strong></div>
+    `).join("") : `<p class="empty-state">No data imported yet.</p>`;
+}
+
+function renderPartnerTable() {
+    const target = document.querySelector("[data-partner-table]");
+    const empty = document.querySelector("[data-empty-partners]");
+    target.innerHTML = "";
+    empty.hidden = partnerState.partners.length > 0;
+    partnerState.partners.forEach((partner) => {
+        const row = document.createElement("tr");
+        if (partner.daysOverdue > 0) row.className = "overdue";
+        row.innerHTML = `
+            <td><strong>${escapeHtml(partner.partnerName)}</strong></td>
+            <td>${escapeHtml(partner.owner || "-")}</td>
+            <td>${escapeHtml(partner.territory || "-")}</td>
+            <td>${stageBadge(partner.masterStage)}</td>
+            <td>${escapeHtml(partner.dateOfStageChange || "-")}</td>
+            <td>${escapeHtml(partner.ageOfStage || "-")}</td>
+            <td>${partner.daysOverdue ? `<strong>${partner.daysOverdue}</strong>` : "0"}</td>
+            <td>${escapeHtml(partner.sfAccount || "-")}</td>
+            <td>${escapeHtml(partner.partnerType || "-")}</td>
+            <td>${escapeHtml(partner.csmInvolved || "-")}</td>
+            <td>${workbookLink(partner.workbookLink, partner.isWorkbookLinkUrl)}</td>
+            <td>${partner.linkedLifecycleCount ? `<a class="button ghost small" href="/">Open lifecycle</a>` : `<span class="muted">Not linked</span>`}</td>
+        `;
+        target.appendChild(row);
+    });
+}
+
+async function importPartners(event) {
+    event.preventDefault();
+    const result = document.querySelector("[data-partner-import-result]");
+    result.textContent = "";
+    try {
+        const payload = await api("/api/partners/import", { method: "POST", body: new FormData(event.currentTarget) });
+        result.innerHTML = `<strong>${payload.created} partners created, ${payload.updated} partners updated.</strong>`;
+        if (payload.errors?.length) {
+            const list = payload.errors.slice(0, 10).map((item) => `<li>Row ${item.row}: ${escapeHtml(item.errors.join(", "))}</li>`).join("");
+            result.innerHTML += `<ul>${list}</ul>`;
+        }
+        await loadPartnerImportAdminSummary();
+    } catch (error) {
+        result.textContent = error.message;
+    }
+}
+
+async function loadPartnerImportAdminSummary() {
+    if (!document.querySelector("[data-partner-import-history]")) return;
+    const historyData = await api("/api/partner-import-history");
+    const history = document.querySelector("[data-partner-import-history]");
+    history.innerHTML = historyData.history.length ? historyData.history.map((item) => `
+        <div class="history-item">
+            <strong>${escapeHtml(item.filename || "Partner import")}</strong>
+            <span>${formatDateTime(item.importedAt)} · ${escapeHtml(item.importedBy || "System")}</span>
+            <p>${item.createdCount} created · ${item.updatedCount} updated · ${item.errorCount} errors</p>
+        </div>
+    `).join("") : `<p class="empty-state">No partner imports yet.</p>`;
+    const partners = await api("/api/partners");
+    document.querySelector("[data-partners-without-link]").textContent = partners.summary?.withoutLifecycleWorkbook || 0;
+    const workbook = await api("/api/lifecycle-workbook");
+    document.querySelector("[data-unmatched-workbook]").textContent = workbook.workbook.partnerId ? 0 : 1;
+}
+
+function partnerDetail(label, value, isHtml = false) {
+    const displayValue = isHtml ? (value || "-") : escapeHtml(value || "-");
+    return `<div><span>${escapeHtml(label)}</span><strong>${displayValue}</strong></div>`;
+}
+
+function workbookLink(value, isUrl) {
+    if (!value) return "-";
+    return isUrl ? `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">Open workbook</a>` : escapeHtml(value);
+}
+
+function stageBadge(stage) {
+    return stage ? `<span class="badge stage-badge">${escapeHtml(stage)}</span>` : "-";
+}
+
+function debounce(fn, wait) {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), wait);
+    };
 }
 
 function statusBadge(status) {
