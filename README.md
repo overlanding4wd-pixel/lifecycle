@@ -14,6 +14,16 @@ Lifecycle Tracker is a Flask + SQLite web application that replaces the Lifecycl
 - Settings page for statuses, stages, owners, priorities, and status colours
 - Simple Admin, Editor, and Viewer role preview
 
+## Branding
+
+The UI follows the `Logo Ref for Team-2.pptx` guide from the repository:
+
+- Logo: extracted Cortave logo asset used in the application shell
+- Font stack: `Neue Haas Grotesk Text Pro`, `New Haas Grotesk Text Pro`, then system sans-serif fallbacks
+- Primary blue: RGB 0, 74, 136 / `#004A88`
+- Brand grey: RGB 152, 162, 170 / `#98A2AA`
+- Positive green: RGB 120, 190, 32 / `#78BE20`
+
 ## Run locally
 
 ```bash
