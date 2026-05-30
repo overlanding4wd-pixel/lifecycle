@@ -90,16 +90,16 @@
         </div>
 
         <form class="filters portfolio-filters" data-account-plan-filters>
-            <label>Search<input name="search" placeholder="Name, owner, next step"></label>
-            <label>Type<select name="accountType"><option value="">All</option><option value="Innovator">Innovator</option><option value="Direct Customer">Direct Customer</option></select></label>
-            <label>Stage<select name="stage" data-plan-stage-filter><option value="">All stages</option></select></label>
-            <label>Status<select name="status"><option value="">All</option><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option><option value="Live">Live</option><option value="Qualified Out">Qualified Out</option></select></label>
-            <label>Health<select name="health"><option value="">All</option><option value="Strong">Strong</option><option value="Good">Good</option><option value="At Risk">At Risk</option><option value="Bad">Bad</option><option value="N/A">N/A</option></select></label>
-            <label>Owner<input name="owner" placeholder="Owner"></label>
-            <label class="checkbox-label"><input type="checkbox" name="overdue" value="true">Overdue only</label>
-            <label>Sort by<select name="sort"><option value="nextDueDate">Next due date</option><option value="daysOverdue">Days overdue</option><option value="stage">Stage</option><option value="owner">Owner</option><option value="type">Type</option></select></label>
-            <button class="button secondary" type="submit">Apply</button>
-            <button class="button ghost" type="button" data-reset-plan-filters>Reset</button>
+            <label class="filter-search">Search<input name="search" placeholder="Name, owner, next step"></label>
+            <label class="filter-type">Type<select name="accountType"><option value="">All</option><option value="Innovator">Innovator</option><option value="Direct Customer">Direct Customer</option></select></label>
+            <label class="filter-stage">Stage<select name="stage" data-plan-stage-filter><option value="">All stages</option></select></label>
+            <label class="filter-status">Status<select name="status"><option value="">All</option><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option><option value="Live">Live</option><option value="Qualified Out">Qualified Out</option></select></label>
+            <label class="filter-health">Health<select name="health"><option value="">All</option><option value="Strong">Strong</option><option value="Good">Good</option><option value="At Risk">At Risk</option><option value="Bad">Bad</option><option value="N/A">N/A</option></select></label>
+            <label class="filter-owner">Owner<input name="owner" placeholder="Owner"></label>
+            <label class="checkbox-label filter-overdue"><input type="checkbox" name="overdue" value="true">Overdue only</label>
+            <label class="filter-sort">Sort by<select name="sort"><option value="nextDueDate">Next due date</option><option value="daysOverdue">Days overdue</option><option value="stage">Stage</option><option value="owner">Owner</option><option value="type">Type</option></select></label>
+            <button class="button primary filter-apply" type="submit">Apply</button>
+            <button class="button secondary filter-reset" type="button" data-reset-plan-filters>Reset</button>
         </form>
 
         <div class="table-wrap">

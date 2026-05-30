@@ -865,10 +865,6 @@ textarea {
     min-width: 260px;
 }
 
-.portfolio-filters {
-    grid-template-columns: repeat(6, minmax(130px, 1fr)) auto auto;
-}
-
 .dashboard-hero {
     align-items: center;
     display: flex;
@@ -1156,5 +1152,67 @@ textarea {
     .plan-header-grid,
     .next-step-card dl {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Compact single-row toolbar for Active Plans filters. */
+.portfolio-filters {
+    align-items: end;
+    gap: 12px;
+    grid-template-columns: 240px 130px 140px 140px 130px 180px auto 150px 90px 90px;
+    overflow-x: auto;
+    padding: 10px 12px;
+}
+
+.portfolio-filters label {
+    gap: 4px;
+    min-width: 0;
+}
+
+.portfolio-filters input,
+.portfolio-filters select {
+    min-height: 38px;
+    padding: 7px 9px;
+}
+
+.portfolio-filters .checkbox-label {
+    align-items: center;
+    align-self: end;
+    display: flex;
+    height: 38px;
+    justify-content: center;
+    min-height: 38px;
+    white-space: nowrap;
+}
+
+.portfolio-filters .filter-apply,
+.portfolio-filters .filter-reset {
+    align-self: end;
+    height: 38px;
+    padding: 7px 12px;
+    width: 90px;
+}
+
+@media (max-width: 1380px) {
+    .portfolio-filters {
+        grid-template-columns: 240px 130px 140px 140px 130px 180px auto 150px 90px 90px;
+    }
+}
+
+@media (max-width: 1180px) {
+    .portfolio-filters {
+        grid-template-columns: 240px 130px 140px 140px 130px;
+        overflow-x: visible;
+    }
+}
+
+@media (max-width: 760px) {
+    .portfolio-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .portfolio-filters .filter-apply,
+    .portfolio-filters .filter-reset {
+        width: 100%;
     }
 }
