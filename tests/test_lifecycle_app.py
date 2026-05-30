@@ -352,9 +352,10 @@ class LifecycleAppTest(unittest.TestCase):
 
         innovator_items = self.client.get(f"/api/lifecycle-templates/{by_type['Innovator']['id']}/items").get_json()["items"]
         direct_items = self.client.get(f"/api/lifecycle-templates/{by_type['Direct Customer']['id']}/items").get_json()["items"]
-        self.assertEqual(len(innovator_items), 26)
+        self.assertEqual(len(innovator_items), 27)
         self.assertEqual(len(direct_items), 22)
         self.assertEqual(innovator_items[0]["stage"], "I0")
+        self.assertEqual(innovator_items[0]["activity"], "Kick-off date set for automated deadlines")
         self.assertEqual(innovator_items[-1]["activity"], "Innovator Live")
         self.assertEqual(direct_items[0]["stage"], "D0")
         self.assertEqual(direct_items[-1]["activity"], "customer Live")
@@ -373,9 +374,10 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertEqual(create_response.status_code, 201)
         plan_id = create_response.get_json()["id"]
         items = self.client.get(f"/api/account-plans/{plan_id}/items").get_json()["items"]
-        self.assertEqual(len(items), 26)
+        self.assertEqual(len(items), 27)
+        self.assertEqual(items[0]["activity"], "Kick-off date set for automated deadlines")
         self.assertEqual(items[0]["actualStartDate"], "2026-06-01")
-        self.assertEqual(items[1]["dueDate"], "2026-06-08")
+        self.assertEqual(items[2]["dueDate"], "2026-06-08")
         self.assertEqual(items[-1]["dueDate"], "2026-07-21")
 
         summary = self.client.get("/api/account-plans").get_json()["summary"]

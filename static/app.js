@@ -71,15 +71,31 @@ async function createAccountPlan(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const errors = document.querySelector("[data-account-plan-errors]");
+    const result = document.querySelector("[data-account-plan-result]");
+    const submitButton = form.querySelector("button[type='submit']");
     errors.textContent = "";
+    if (result) result.textContent = "";
     const payload = Object.fromEntries(new FormData(form).entries());
     try {
-        await api("/api/account-plans", { method: "POST", body: JSON.stringify(payload) });
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = "Creating...";
+        }
+        const response = await api("/api/account-plans", { method: "POST", body: JSON.stringify(payload) });
         form.reset();
         await loadAccountPlans();
         await loadDashboard();
+        if (result) {
+            const itemCount = response.plan?.items?.length || 0;
+            result.innerHTML = `<strong>Created ${escapeHtml(response.plan.accountName)}.</strong> ${itemCount} lifecycle actions were generated from the ${escapeHtml(response.plan.templateName)} template.`;
+        }
     } catch (error) {
         errors.textContent = error.message;
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = "Create Account Plan";
+        }
     }
 }
 

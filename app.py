@@ -140,6 +140,7 @@ PARTNER_HEADER_ALIASES = {
 ACCOUNT_TYPES = {"Innovator", "Direct Customer"}
 
 INNOVATOR_TEMPLATE_ITEMS = [
+    ("I0", "Kick-off date set for automated deadlines", "Mark / Innovator", 0, 0),
     ("I0", "innovator identified", "Mark / Innovator", 0, 0),
     ("I0", "Outreach started", "Mark / Innovator", 0, 7),
     ("I0", "Alignment with next steps to enter I20", "Mark / Innovator", 0, 10),
@@ -212,7 +213,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.context_processor
     def inject_user() -> dict[str, Any]:
-        return {"current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"})}
+        return {
+            "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
+            "asset_version": "20260530-account-plan-fix",
+        }
 
     @app.route("/")
     def dashboard() -> str:
@@ -1837,6 +1841,7 @@ def seed_lifecycle_template(db: sqlite3.Connection, name: str, account_type: str
         (template_id,),
     ).fetchone()["count"]
     if item_count:
+        ensure_seeded_template_items_current(db, template_id, name, items)
         return
     for index, (stage, activity, owner, start_day, due_day) in enumerate(items, start=1):
         db.execute(
@@ -1849,6 +1854,36 @@ def seed_lifecycle_template(db: sqlite3.Connection, name: str, account_type: str
             """,
             (template_id, index, stage, activity, owner, start_day, due_day, owner),
         )
+
+
+def ensure_seeded_template_items_current(db: sqlite3.Connection, template_id: int, name: str, items: list[tuple[str, str, str, int, int]]) -> None:
+    if name != "Innovator Journey":
+        return
+    first = db.execute(
+        "SELECT activity FROM lifecycle_template_items WHERE lifecycle_template_id = ? ORDER BY sort_order LIMIT 1",
+        (template_id,),
+    ).fetchone()
+    count = db.execute(
+        "SELECT COUNT(*) AS count FROM lifecycle_template_items WHERE lifecycle_template_id = ?",
+        (template_id,),
+    ).fetchone()["count"]
+    if count >= len(items) or (first and clean_text(first["activity"]) == "Kick-off date set for automated deadlines"):
+        return
+    now_owner = "Mark / Innovator"
+    db.execute(
+        "UPDATE lifecycle_template_items SET sort_order = sort_order + 1 WHERE lifecycle_template_id = ?",
+        (template_id,),
+    )
+    db.execute(
+        """
+        INSERT INTO lifecycle_template_items
+            (lifecycle_template_id, sort_order, stage, activity, default_status,
+             default_responsible_party, start_day_offset, target_due_day_offset,
+             default_cortave_owner, default_account_owner, link, notes)
+        VALUES (?, 1, 'I0', 'Kick-off date set for automated deadlines', 'Not Started', ?, 0, 0, ?, '', '', '')
+        """,
+        (template_id, now_owner, now_owner),
+    )
 
 
 def validate_account_plan_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
