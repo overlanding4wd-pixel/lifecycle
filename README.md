@@ -52,10 +52,11 @@ The app includes an add-on module for `Partner Dashboard.xlsx`:
 
 - New `Partner` master data table populated from the workbook's `Partners` sheet
 - Import mapping for Partner, Owner, Territory, Active stage, Date Of Stage Change, Age of Stage, Days Overdue, Workbook Link, SF Account, Next Steps/notes, Partner Type, and CSM Involved
+- Org Impact sheet import for parameters, base assumptions, estimated averages, and summary impact metrics
 - Partner imports upsert by partner name so re-importing refreshes master data without touching I20/D20 tracker records
 - A `lifecycle_workbooks` link table associates this Lifecycle Tracker workspace with one imported partner now and can support more workbooks later
 - The Overview and tracker pages show a Linked Master Partner panel with search, link, unlink, and live partner summary details
-- The Master Partner Dashboard page provides searchable/filterable partner records, summary cards, and lifecycle link status
+- The Master Partner Dashboard page provides searchable/filterable partner records, partner summary cards, lifecycle link status, and an Org Impact section
 - Import / Export includes Master Partner Dashboard re-import controls and import history
 
 ## Production hardening ideas

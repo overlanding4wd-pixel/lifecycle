@@ -125,6 +125,53 @@ class LifecycleAppTest(unittest.TestCase):
             "https://example.com",
             "Workbook note",
         ])
+
+        org = workbook.create_sheet("Org Impact ")
+        org["C4"] = 5
+        org["D4"] = "Working days per week"
+        org["C10"] = 2008
+        org["D10"] = "Working hours per year (average)"
+        org["C11"] = 100000
+        org["D11"] = "Average FTE cost (annual)"
+        org["C16"] = "Partner Manager"
+        org["D16"] = 15
+        org["E16"] = 45
+        org["F16"] = 90
+        org["G16"] = 3
+        org["H16"] = 9
+        org["I16"] = 18
+        org["C26"] = "Total"
+        org["D26"] = 15
+        org["E26"] = 45
+        org["F26"] = 90
+        org["G26"] = 3
+        org["H26"] = 9
+        org["I26"] = 18
+        org["C31"] = "Partner Manager"
+        org["D31"] = 120
+        org["E31"] = 360
+        org["F31"] = 720
+        org["G31"] = 5976.1
+        org["H31"] = 17928.3
+        org["I31"] = 35856.6
+        org["C41"] = "Total"
+        org["D41"] = 120
+        org["E41"] = 360
+        org["F41"] = 720
+        org["G41"] = 5976.1
+        org["H41"] = 17928.3
+        org["I41"] = 35856.6
+        org["C45"] = "Recruitment"
+        org["D45"] = 40
+        org["E45"] = 7360
+        org["F45"] = 920
+        org["G45"] = 3.67
+        org["C49"] = "Total"
+        org["D49"] = 49
+        org["E49"] = 14856
+        org["F49"] = 1857
+        org["G49"] = 7.4
+
         output = io.BytesIO()
         workbook.save(output)
         output.seek(0)
@@ -194,6 +241,52 @@ class LifecycleAppTest(unittest.TestCase):
             "Technology",
             "Yes",
         ])
+        org = workbook.create_sheet("Org Impact ")
+        org["C4"] = 5
+        org["D4"] = "Working days per week"
+        org["C10"] = 2008
+        org["D10"] = "Working hours per year (average)"
+        org["C11"] = 100000
+        org["D11"] = "Average FTE cost (annual)"
+        org["C16"] = "Partner Manager"
+        org["D16"] = 15
+        org["E16"] = 45
+        org["F16"] = 90
+        org["G16"] = 3
+        org["H16"] = 9
+        org["I16"] = 18
+        org["C26"] = "Total"
+        org["D26"] = 15
+        org["E26"] = 45
+        org["F26"] = 90
+        org["G26"] = 3
+        org["H26"] = 9
+        org["I26"] = 18
+        org["C31"] = "Partner Manager"
+        org["D31"] = 120
+        org["E31"] = 360
+        org["F31"] = 720
+        org["G31"] = 5976.1
+        org["H31"] = 17928.3
+        org["I31"] = 35856.6
+        org["C41"] = "Total"
+        org["D41"] = 120
+        org["E41"] = 360
+        org["F41"] = 720
+        org["G41"] = 5976.1
+        org["H41"] = 17928.3
+        org["I41"] = 35856.6
+        org["C45"] = "Recruitment"
+        org["D45"] = 40
+        org["E45"] = 7360
+        org["F45"] = 920
+        org["G45"] = 3.67
+        org["C49"] = "Total"
+        org["D49"] = 49
+        org["E49"] = 14856
+        org["F49"] = 1857
+        org["G49"] = 7.4
+
         output = io.BytesIO()
         workbook.save(output)
         output.seek(0)
@@ -217,6 +310,12 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertEqual(partners[0]["masterStage"], "Recruitment")
         self.assertEqual(partners[0]["workbookLink"], "https://example.com/deloitte")
         self.assertTrue(partners[0]["isWorkbookLinkUrl"])
+
+        org_response = self.client.get("/api/org-impact")
+        org_payload = org_response.get_json()
+        self.assertEqual(org_payload["totals"]["totalHours"], 14856)
+        self.assertEqual(org_payload["summary"][0]["label"], "Recruitment")
+        self.assertEqual(org_payload["assumptions"][0]["label"], "Partner Manager")
 
         link_response = self.client.post("/api/lifecycle-workbook/link", json={"partnerId": partners[0]["id"]})
         self.assertEqual(link_response.status_code, 200)

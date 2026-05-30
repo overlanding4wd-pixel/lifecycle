@@ -571,6 +571,82 @@ async function initPartnerDashboard() {
         });
     });
     await loadPartnerDashboard();
+    await loadOrgImpact();
+}
+
+
+async function loadOrgImpact() {
+    const panel = document.querySelector("[data-org-summary-table]");
+    if (!panel) return;
+    const data = await api("/api/org-impact");
+    renderOrgImpactMetrics(data.totals || {});
+    renderOrgImpactSummary(data.summary || []);
+    renderOrgImpactParameters(data.parameters || []);
+    renderOrgImpactAssumptions(data.assumptions || []);
+    renderOrgImpactAverages(data.averages || []);
+    const imported = document.querySelector("[data-org-impact-imported]");
+    if (imported) imported.textContent = data.importedAt ? `Imported ${formatDateTime(data.importedAt)}` : "Import Partner Dashboard to populate Org Impact";
+}
+
+function renderOrgImpactMetrics(totals) {
+    ["countInStage", "totalHours", "totalDays", "totalYears"].forEach((key) => {
+        const element = document.querySelector(`[data-org-metric="${key}"]`);
+        if (element) element.textContent = formatNumber(totals[key] || 0);
+    });
+}
+
+function renderOrgImpactSummary(rows) {
+    const target = document.querySelector("[data-org-summary-table]");
+    target.innerHTML = rows.length ? rows.map((row) => `
+        <tr>
+            <td><strong>${escapeHtml(row.label)}</strong></td>
+            <td>${formatNumber(row.countInStage)}</td>
+            <td>${formatNumber(row.totalHours)}</td>
+            <td>${formatNumber(row.totalDays)}</td>
+            <td>${formatNumber(row.totalYears)}</td>
+        </tr>
+    `).join("") : `<tr><td colspan="5">Import Partner Dashboard to populate Org Impact.</td></tr>`;
+}
+
+function renderOrgImpactParameters(rows) {
+    const target = document.querySelector("[data-org-parameters]");
+    target.innerHTML = rows.length ? rows.map((row) => `
+        <div class="summary-row"><span>${escapeHtml(row.label)}</span><strong>${formatNumber(row.value)}</strong></div>
+    `).join("") : `<p class="empty-state">No Org Impact parameters imported yet.</p>`;
+}
+
+function renderOrgImpactAssumptions(rows) {
+    const target = document.querySelector("[data-org-assumptions-table]");
+    target.innerHTML = rows.length ? rows.map((row) => `
+        <tr>
+            <td>${escapeHtml(row.label)}</td>
+            <td>${formatNumber(row.recruitmentDays)}</td>
+            <td>${formatNumber(row.onboardingDays)}</td>
+            <td>${formatNumber(row.activeDays)}</td>
+        </tr>
+    `).join("") : `<tr><td colspan="4">No assumptions imported yet.</td></tr>`;
+}
+
+function renderOrgImpactAverages(rows) {
+    const target = document.querySelector("[data-org-averages-table]");
+    target.innerHTML = rows.length ? rows.map((row) => `
+        <tr>
+            <td>${escapeHtml(row.label)}</td>
+            <td>${formatNumber(row.recruitmentHours)}</td>
+            <td>${formatNumber(row.onboardingHours)}</td>
+            <td>${formatNumber(row.activeHours)}</td>
+        </tr>
+    `).join("") : `<tr><td colspan="4">No estimated averages imported yet.</td></tr>`;
+}
+
+function formatNumber(value) {
+    if (value === "" || value === null || value === undefined) return "-";
+    if (typeof value === "number") return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+    const number = Number(value);
+    if (!Number.isNaN(number) && String(value).trim() !== "") {
+        return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(number);
+    }
+    return escapeHtml(value);
 }
 
 async function loadPartnerFilterOptions() {

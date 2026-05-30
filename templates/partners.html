@@ -41,6 +41,83 @@
         </section>
     </div>
 
+
+    <section class="panel org-impact-panel">
+        <div class="panel-header">
+            <div>
+                <h2>Org Impact</h2>
+                <p>Estimated organizational time and cost impact from the Partner Dashboard Org Impact sheet.</p>
+            </div>
+            <span class="muted" data-org-impact-imported></span>
+        </div>
+
+        <div class="card-grid metric-grid org-impact-metrics">
+            <div class="metric-card"><span>Total partner stages counted</span><strong data-org-metric="countInStage">0</strong></div>
+            <div class="metric-card"><span>Total estimated hours</span><strong data-org-metric="totalHours">0</strong></div>
+            <div class="metric-card"><span>Total estimated days</span><strong data-org-metric="totalDays">0</strong></div>
+            <div class="metric-card"><span>Total estimated years</span><strong data-org-metric="totalYears">0</strong></div>
+        </div>
+
+        <div class="two-column">
+            <div>
+                <h3>Summary by stage</h3>
+                <div class="table-wrap">
+                    <table class="data-table compact">
+                        <thead>
+                            <tr>
+                                <th>Stage</th>
+                                <th># In Stage</th>
+                                <th>Total Hours</th>
+                                <th>Total Days</th>
+                                <th>Total Years</th>
+                            </tr>
+                        </thead>
+                        <tbody data-org-summary-table></tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Parameters</h3>
+                <div class="summary-list" data-org-parameters></div>
+            </div>
+        </div>
+
+        <div class="two-column">
+            <div>
+                <h3>Base assumptions: days per partner by team</h3>
+                <div class="table-wrap">
+                    <table class="data-table compact org-impact-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Recruitment</th>
+                                <th>On Boarding</th>
+                                <th>Active</th>
+                            </tr>
+                        </thead>
+                        <tbody data-org-assumptions-table></tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Estimated averages: hours per partner by team</h3>
+                <div class="table-wrap">
+                    <table class="data-table compact org-impact-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Recruitment</th>
+                                <th>On Boarding</th>
+                                <th>Active</th>
+                            </tr>
+                        </thead>
+                        <tbody data-org-averages-table></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="panel">
         <div class="panel-header">
             <div>

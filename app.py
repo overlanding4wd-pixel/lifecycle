@@ -474,10 +474,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             return jsonify({"error": "Partner import expects an .xlsx workbook."}), 400
         try:
             rows = parse_partner_dashboard_file(upload)
+            upload.stream.seek(0)
+            org_impact = parse_org_impact_file(upload)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         created, updated, errors = upsert_partner_rows(app.config["DATABASE"], rows, session["user"]["name"], upload.filename)
-        return jsonify({"created": created, "updated": updated, "errors": errors})
+        org_rows = save_org_impact(app.config["DATABASE"], org_impact)
+        return jsonify({"created": created, "updated": updated, "errors": errors, "orgImpactRows": org_rows})
 
     @app.get("/api/partner-import-history")
     @role_required("admin")
@@ -492,6 +495,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         ).fetchall()
         db.close()
         return jsonify({"history": [partner_import_history_to_dict(row) for row in rows]})
+
+    @app.get("/api/org-impact")
+    def get_org_impact() -> Response:
+        return jsonify(load_org_impact(app.config["DATABASE"]))
 
     @app.get("/api/lifecycle-workbook")
     def get_lifecycle_workbook() -> Response:
@@ -700,6 +707,18 @@ def init_db(database_path: str) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY(partner_id) REFERENCES partners(id) ON DELETE SET NULL
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS org_impact_rows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section TEXT NOT NULL,
+            row_label TEXT NOT NULL,
+            values_json TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            imported_at TEXT NOT NULL
         )
         """
     )
@@ -1425,6 +1444,115 @@ def partner_import_history_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "errorCount": row["error_count"],
         "notes": row["notes"] or "",
     }
+
+
+def parse_org_impact_file(upload: Any) -> dict[str, list[dict[str, Any]]]:
+    if load_workbook is None:
+        raise ValueError("Org Impact import requires openpyxl.")
+    workbook = load_workbook(upload.stream, data_only=True)
+    sheet_name = next((name for name in workbook.sheetnames if normalize_header(name) == "org impact"), "")
+    if not sheet_name:
+        return {"parameters": [], "assumptions": [], "averages": [], "summary": []}
+    sheet = workbook[sheet_name]
+    parameters = []
+    for row in range(4, 12):
+        label = clean_text(sheet.cell(row, 4).value)
+        value = clean_number_or_text(sheet.cell(row, 3).value)
+        if label:
+            parameters.append({"label": label, "value": value})
+    assumptions = parse_org_impact_matrix(sheet, 16, 26, "baseAssumptions", [
+        "recruitmentDays", "onboardingDays", "activeDays", "recruitmentWeeks", "onboardingWeeks", "activeWeeks"
+    ])
+    averages = parse_org_impact_matrix(sheet, 31, 41, "estimatedAverages", [
+        "recruitmentHours", "onboardingHours", "activeHours", "recruitmentCost", "onboardingCost", "activeCost"
+    ])
+    summary = []
+    for row in range(45, 50):
+        stage = clean_text(sheet.cell(row, 3).value)
+        if stage:
+            summary.append({
+                "label": stage,
+                "countInStage": clean_number_or_text(sheet.cell(row, 4).value),
+                "totalHours": clean_number_or_text(sheet.cell(row, 5).value),
+                "totalDays": clean_number_or_text(sheet.cell(row, 6).value),
+                "totalYears": clean_number_or_text(sheet.cell(row, 7).value),
+            })
+    return {"parameters": parameters, "assumptions": assumptions, "averages": averages, "summary": summary}
+
+
+def parse_org_impact_matrix(sheet: Any, start_row: int, end_row: int, section: str, keys: list[str]) -> list[dict[str, Any]]:
+    rows = []
+    for row in range(start_row, end_row + 1):
+        label = clean_text(sheet.cell(row, 3).value)
+        if not label:
+            continue
+        values = {"label": label, "section": section}
+        for offset, key in enumerate(keys, start=4):
+            values[key] = clean_number_or_text(sheet.cell(row, offset).value)
+        rows.append(values)
+    return rows
+
+
+def save_org_impact(database_path: str, org_impact: dict[str, list[dict[str, Any]]]) -> int:
+    now = utc_now()
+    db = get_db(database_path)
+    db.execute("DELETE FROM org_impact_rows")
+    inserted = 0
+    sort_order = 0
+    for section, rows in org_impact.items():
+        for row in rows:
+            label = clean_text(row.get("label"))
+            if not label:
+                continue
+            sort_order += 1
+            db.execute(
+                """
+                INSERT INTO org_impact_rows (section, row_label, values_json, sort_order, imported_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (section, label, json.dumps(row, sort_keys=True), sort_order, now),
+            )
+            inserted += 1
+    db.commit()
+    db.close()
+    return inserted
+
+
+def load_org_impact(database_path: str) -> dict[str, Any]:
+    db = get_db(database_path)
+    rows = db.execute("SELECT * FROM org_impact_rows ORDER BY sort_order").fetchall()
+    db.close()
+    grouped = {"parameters": [], "assumptions": [], "averages": [], "summary": []}
+    imported_at = ""
+    for row in rows:
+        imported_at = row["imported_at"]
+        try:
+            values = json.loads(row["values_json"])
+        except json.JSONDecodeError:
+            values = {"label": row["row_label"]}
+        section = row["section"]
+        if section == "baseAssumptions":
+            grouped["assumptions"].append(values)
+        elif section == "estimatedAverages":
+            grouped["averages"].append(values)
+        else:
+            grouped.setdefault(section, []).append(values)
+    grouped["importedAt"] = imported_at
+    grouped["totals"] = next((row for row in grouped["summary"] if clean_text(row.get("label")).lower() == "total"), {})
+    return grouped
+
+
+def clean_number_or_text(value: Any) -> Any:
+    text = clean_partner_value(value)
+    if text == "":
+        return ""
+    try:
+        number = float(text)
+        if number.is_integer():
+            return int(number)
+        return round(number, 2)
+    except (ValueError, TypeError):
+        return text
 
 
 if __name__ == "__main__":
