@@ -67,14 +67,14 @@ textarea {
     background: #fff;
     border-radius: 12px;
     display: flex;
-    min-height: 54px;
+    min-height: 60px;
     padding: 8px 10px;
 }
 
 .brand-logo {
     display: block;
     height: auto;
-    width: 118px;
+    width: 190px;
 }
 
 .brand span,
@@ -134,8 +134,8 @@ textarea {
     box-shadow: 0 8px 22px rgba(0, 74, 136, 0.08);
     display: block;
     height: auto;
-    padding: 9px 12px;
-    width: 132px;
+    padding: 10px 14px;
+    width: 240px;
 }
 
 .topbar h1,
@@ -658,6 +658,10 @@ textarea {
     .topbar-brand {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .topbar-logo {
+        width: 210px;
     }
 
     .nav,
