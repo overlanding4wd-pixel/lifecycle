@@ -46,6 +46,28 @@ The app creates `lifecycle_tracker.db` automatically on first request and seeds 
 
 CSV and Excel imports map common workbook headers such as `Opportunity Name`, `Account Name`, `Owner`, `Stage`, `Status`, `Due Date`, and `Next Action` to app fields. The uploaded Lifecycle Workbook is also supported directly: when importing an `.xlsx`, the app selects the matching `I20 Tracker` or `D20 Tracker` sheet and maps workbook columns including `Activity`, `who @ cortave`, `Start Day`, `Actual Start Date`, `Target Due Day`, `cortave Owner`, `Innovator Owner`, `Link`, and `Notes`. Unrecognised workbook columns are preserved in the record's additional imported fields JSON so workbook-specific columns are not lost.
 
+## Account Plan terminology and lifecycle templates
+
+The app now treats the workbook journeys as editable lifecycle templates rather than spreadsheet tabs:
+
+- **Account**: either an Innovator/partner or a Direct Customer
+- **Account Type**: `Innovator` or `Direct Customer`
+- **Account Plan**: the project plan for an account
+- **Lifecycle Template**: default journey template used to create a plan
+- **Lifecycle Item**: an individual task/activity/step copied into an Account Plan
+
+Default templates are seeded in the database:
+
+- **Innovator Journey**: I0, I20, and I50 stages from the Lifecycle Workbook `I20 Tracker` sheet
+- **Direct Customer Journey**: D0 and D20 stages from the Lifecycle Workbook `D20 Tracker` sheet
+
+When an Account Plan is created, the selected account type determines the template. Template item offsets calculate dates from the kick-off date:
+
+- `actualStartDate = kickOffDate + startDayOffset`
+- `dueDate = kickOffDate + targetDueDayOffset`
+
+Admins can view and edit lifecycle template items from Data Validation / Settings.
+
 ## Master Partner Dashboard integration
 
 The app includes an add-on module for `Partner Dashboard.xlsx`:

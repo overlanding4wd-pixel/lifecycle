@@ -60,7 +60,61 @@ function populateOptionSelects(root = document) {
 }
 
 function initDashboard() {
+    document.querySelector("[data-account-plan-form]")?.addEventListener("submit", createAccountPlan);
+    document.querySelector("[data-account-type-filter]")?.addEventListener("change", loadAccountPlans);
     loadDashboard();
+    loadAccountPlans();
+}
+
+
+async function createAccountPlan(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const errors = document.querySelector("[data-account-plan-errors]");
+    errors.textContent = "";
+    const payload = Object.fromEntries(new FormData(form).entries());
+    try {
+        await api("/api/account-plans", { method: "POST", body: JSON.stringify(payload) });
+        form.reset();
+        await loadAccountPlans();
+        await loadDashboard();
+    } catch (error) {
+        errors.textContent = error.message;
+    }
+}
+
+async function loadAccountPlans() {
+    const table = document.querySelector("[data-account-plan-table]");
+    if (!table) return;
+    const accountType = document.querySelector("[data-account-type-filter]")?.value || "";
+    const params = new URLSearchParams();
+    if (accountType) params.set("accountType", accountType);
+    const data = await api(`/api/account-plans?${params.toString()}`);
+    renderAccountPlanMetrics(data.summary || {});
+    table.innerHTML = data.plans.length ? data.plans.map((plan) => `
+        <tr class="${plan.isAtRisk ? "overdue" : ""}">
+            <td><strong>${escapeHtml(plan.accountName)}</strong><br><span class="muted">${escapeHtml(plan.notes || "")}</span></td>
+            <td>${accountTypeBadge(plan.accountType)}</td>
+            <td>${escapeHtml(plan.planOwner)}</td>
+            <td>${escapeHtml(plan.templateName)}</td>
+            <td>${escapeHtml(plan.kickOffDate)}</td>
+            <td>${escapeHtml(plan.targetGoLiveDate || "-")}</td>
+            <td>${plan.completedItems}/${plan.totalItems} completed</td>
+            <td>${plan.isAtRisk ? `<strong>${plan.overdueItems} overdue / ${plan.onHoldItems} on hold</strong>` : "On track"}</td>
+        </tr>
+    `).join("") : `<tr><td colspan="8">No Account Plans yet. Create an Innovator or Direct Customer plan above.</td></tr>`;
+}
+
+function renderAccountPlanMetrics(summary) {
+    ["totalInnovators", "totalDirectCustomers", "innovatorPlansInProgress", "directCustomerPlansInProgress", "innovatorsLive", "directCustomersLive", "overduePlans", "plansAtRisk"].forEach((key) => {
+        const element = document.querySelector(`[data-plan-metric="${key}"]`);
+        if (element) element.textContent = summary[key] || 0;
+    });
+}
+
+function accountTypeBadge(accountType) {
+    const label = accountType === "Innovator" ? "Innovator / Partner" : accountType;
+    return `<span class="badge stage-badge">${escapeHtml(label)}</span>`;
 }
 
 async function loadDashboard() {
@@ -355,12 +409,67 @@ function downloadCurrentExport(format) {
 
 function initSettings() {
     renderSettings();
+    loadLifecycleTemplateSettings();
     document.querySelectorAll("[data-add-option]").forEach((button) => {
         button.addEventListener("click", () => openOptionDrawer({ category: button.dataset.addOption }));
     });
     document.querySelector("[data-option-form]").addEventListener("submit", saveOption);
     document.querySelectorAll("[data-close-option-drawer]").forEach((button) => button.addEventListener("click", closeOptionDrawer));
     document.querySelector("[data-delete-option]").addEventListener("click", deleteOption);
+}
+
+
+async function loadLifecycleTemplateSettings() {
+    const target = document.querySelector("[data-template-list]");
+    if (!target) return;
+    const data = await api("/api/lifecycle-templates");
+    target.innerHTML = "";
+    for (const template of data.templates) {
+        const items = await api(`/api/lifecycle-templates/${template.id}/items`);
+        const section = document.createElement("section");
+        section.className = "settings-card template-card";
+        section.innerHTML = `
+            <div class="settings-card-header">
+                <div>
+                    <h3>${escapeHtml(template.templateName)}</h3>
+                    <p>${escapeHtml(template.accountType)} · ${items.items.length} items</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table compact template-table">
+                    <thead><tr><th>#</th><th>Stage</th><th>Activity</th><th>Owner</th><th>Offsets</th><th></th></tr></thead>
+                    <tbody>${items.items.map((item) => `
+                        <tr>
+                            <td>${item.sortOrder}</td>
+                            <td>${escapeHtml(item.stage)}</td>
+                            <td>${escapeHtml(item.activity)}</td>
+                            <td>${escapeHtml(item.defaultResponsibleParty)}</td>
+                            <td>${item.startDayOffset} / ${item.targetDueDayOffset}</td>
+                            <td><button class="button ghost small" data-edit-template-item="${item.id}" data-activity="${escapeHtml(item.activity)}" data-owner="${escapeHtml(item.defaultResponsibleParty)}" data-start="${item.startDayOffset}" data-due="${item.targetDueDayOffset}">Edit</button></td>
+                        </tr>
+                    `).join("")}</tbody>
+                </table>
+            </div>
+        `;
+        target.appendChild(section);
+    }
+    target.querySelectorAll("[data-edit-template-item]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const activity = prompt("Activity", button.dataset.activity || "");
+            if (activity === null) return;
+            const owner = prompt("Default responsible party", button.dataset.owner || "");
+            if (owner === null) return;
+            const start = prompt("Start day offset", button.dataset.start || "0");
+            if (start === null) return;
+            const due = prompt("Target due day offset", button.dataset.due || "0");
+            if (due === null) return;
+            await api(`/api/lifecycle-template-items/${button.dataset.editTemplateItem}`, {
+                method: "PUT",
+                body: JSON.stringify({ activity, defaultResponsibleParty: owner, startDayOffset: start, targetDueDayOffset: due }),
+            });
+            await loadLifecycleTemplateSettings();
+        });
+    });
 }
 
 function renderSettings() {

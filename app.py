@@ -137,6 +137,62 @@ PARTNER_HEADER_ALIASES = {
     "csm involved": "csm_involved",
 }
 
+ACCOUNT_TYPES = {"Innovator", "Direct Customer"}
+
+INNOVATOR_TEMPLATE_ITEMS = [
+    ("I0", "innovator identified", "Mark / Innovator", 0, 0),
+    ("I0", "Outreach started", "Mark / Innovator", 0, 7),
+    ("I0", "Alignment with next steps to enter I20", "Mark / Innovator", 0, 10),
+    ("I20", "Meeting set-up formal I20 entry", "Mark / Innovator", 20, 10),
+    ("I20", "Discovery meeting to dig deeper into their GTM", "Mark / Innovator", 20, 10),
+    ("I20", "Alignment on GTM and how they operate", "Mark / Innovator", 20, 10),
+    ("I20", "Innovator signs 14 test agreement", "Innovator", 20, 10),
+    ("I20", "cortave legal counter signs", "Legal", 20, 10),
+    ("I20", "Hand off to experience", "Bobby / Experience", 20, 10),
+    ("I20", "5 day test check in", "Bobby / Experience", 20, 10),
+    ("I20", "10 day test check in", "Bobby / Experience", 20, 10),
+    ("I20", "14 day test review of progress and outcomes", "Bobby / Experience", 20, 10),
+    ("I20", "decision to Go or No go", "Innovator / cortave", 20, 10),
+    ("I20", "No go, qualify out", "Mark / Innovator", 20, 10),
+    ("I20", "Go, move to sign Innovator agreement with model 1 /2", "Mark / Innovator", 20, 10),
+    ("I20", "Innovator signs agreement", "Innovator", 20, 10),
+    ("I20", "Legal counter signs agreement", "Legal", 20, 10),
+    ("I50", "Hand off to experience", "Bobby / Experience", 50, 25),
+    ("I50", "Review any marketing activities", "Melissa / Marketing", 50, 25),
+    ("I50", "Innovator launches gateway", "Innovator", 50, 25),
+    ("I50", "Innovator sets up billing payment structure", "Innovator", 50, 130),
+    ("I50", "cortave finance accepts payment billing details", "Finance", 50, 130),
+    ("I50", "30 day check in", "Mark / Innovator", 50, 137),
+    ("I50", "Innovator signed off as live", "Innovator / cortave", 50, 148),
+    ("I50", "Experience signs off Innovator as live", "Bobby / Experience", 50, 150),
+    ("I50", "Innovator Live", "Innovator / cortave", 50, 50),
+]
+
+DIRECT_TEMPLATE_ITEMS = [
+    ("D0", "Alignment with next steps to enter D20", "Wade / Sales", 0, 10),
+    ("D20", "Meeting set-up formal D20 entry", "Wade / Sales", 20, 10),
+    ("D20", "Discovery meeting to dig deeper into their GTM", "Wade / Sales", 20, 10),
+    ("D20", "Alignment on GTM and how they operate", "Wade / Sales", 20, 10),
+    ("D20", "cortave legal counter signs", "Legal", 20, 10),
+    ("D20", "Hand off to experience", "Bobby / Experience", 20, 10),
+    ("D20", "5 day test check in", "Bobby / Experience", 20, 10),
+    ("D20", "10 day test check in", "Bobby / Experience", 20, 10),
+    ("D20", "14 day test review of progress and outcomes", "Bobby / Experience", 20, 10),
+    ("D20", "decision to Go or No go", "Wade / Sales", 20, 10),
+    ("D20", "No go, qualify out", "Wade / Sales", 20, 10),
+    ("D20", "customer signs EULA agreement", "Customer", 20, 10),
+    ("D20", "Legal counter signs agreement", "Legal", 20, 10),
+    ("D20", "Hand off to experience", "Bobby / Experience", 50, 25),
+    ("D20", "customer launches gateway", "Customer", 50, 25),
+    ("D20", "customer sets up billing payment structure", "Customer", 50, 130),
+    ("D20", "cortave finance accepts payment billing details", "Finance", 50, 130),
+    ("D20", "30 day check in", "Wade / Sales", 50, 137),
+    ("D20", "define any marketing materials / PR / use cases etc", "Melissa / Marketing", 50, 148),
+    ("D20", "customer signed off as live", "Customer", 50, 148),
+    ("D20", "Experience signs off customer as live", "Bobby / Experience", 50, 150),
+    ("D20", "customer Live", "Customer", 50, 50),
+]
+
 
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
@@ -160,7 +216,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.route("/")
     def dashboard() -> str:
-        return render_template("dashboard.html", page_title="Overview Dashboard")
+        return render_template("dashboard.html", page_title="Master Dashboard")
 
     @app.route("/trackers/<tracker_type>")
     def tracker_page(tracker_type: str) -> str:
@@ -276,12 +332,117 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         db.commit()
         return jsonify({"ok": True})
 
+    @app.get("/api/account-plans")
+    def list_account_plans() -> Response:
+        account_type = clean_text(request.args.get("accountType"))
+        plans = query_account_plans(app.config["DATABASE"], account_type)
+        return jsonify({"plans": plans, "summary": account_plan_summary(app.config["DATABASE"], plans)})
+
+    @app.post("/api/account-plans")
+    @role_required("admin", "editor")
+    def create_account_plan_route() -> Response:
+        payload = request.get_json(force=True)
+        plan, errors = validate_account_plan_payload(payload)
+        if errors:
+            return jsonify({"errors": errors}), 400
+        plan_id = create_account_plan(app.config["DATABASE"], plan)
+        return jsonify({"id": plan_id, "plan": get_account_plan(app.config["DATABASE"], plan_id)}), 201
+
+    @app.get("/api/account-plans/<int:plan_id>")
+    def get_account_plan_route(plan_id: int) -> Response:
+        plan = get_account_plan(app.config["DATABASE"], plan_id)
+        if not plan:
+            return jsonify({"error": "Account Plan not found."}), 404
+        return jsonify({"plan": plan})
+
+    @app.get("/api/account-plans/<int:plan_id>/items")
+    def get_account_plan_items_route(plan_id: int) -> Response:
+        return jsonify({"items": query_lifecycle_items(app.config["DATABASE"], plan_id)})
+
+    @app.put("/api/lifecycle-items/<int:item_id>")
+    @role_required("admin", "editor")
+    def update_lifecycle_item_route(item_id: int) -> Response:
+        payload = request.get_json(force=True)
+        db = get_db(app.config["DATABASE"])
+        existing = db.execute("SELECT * FROM lifecycle_items WHERE id = ?", (item_id,)).fetchone()
+        if not existing:
+            db.close()
+            return jsonify({"error": "Lifecycle Item not found."}), 404
+        db.execute(
+            """
+            UPDATE lifecycle_items
+            SET status = ?, responsible_party = ?, actual_start_date = ?, due_date = ?,
+                cortave_owner = ?, account_owner = ?, link = ?, notes = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                clean_text(payload.get("status") or existing["status"]),
+                clean_text(payload.get("responsibleParty") or payload.get("responsible_party") or existing["responsible_party"]),
+                clean_date(payload.get("actualStartDate") or payload.get("actual_start_date")) or existing["actual_start_date"],
+                clean_date(payload.get("dueDate") or payload.get("due_date")) or existing["due_date"],
+                clean_text(payload.get("cortaveOwner") or payload.get("cortave_owner") or existing["cortave_owner"]),
+                clean_text(payload.get("accountOwner") or payload.get("account_owner") or existing["account_owner"]),
+                clean_text(payload.get("link") or existing["link"]),
+                clean_text(payload.get("notes") or existing["notes"]),
+                utc_now(),
+                item_id,
+            ),
+        )
+        db.commit()
+        db.close()
+        return jsonify({"ok": True})
+
+    @app.get("/api/lifecycle-templates")
+    def list_lifecycle_templates_route() -> Response:
+        return jsonify({"templates": list_lifecycle_templates(app.config["DATABASE"])})
+
+    @app.get("/api/lifecycle-templates/<int:template_id>/items")
+    def list_lifecycle_template_items_route(template_id: int) -> Response:
+        return jsonify({"items": list_lifecycle_template_items(app.config["DATABASE"], template_id)})
+
+    @app.put("/api/lifecycle-template-items/<int:item_id>")
+    @role_required("admin")
+    def update_lifecycle_template_item_route(item_id: int) -> Response:
+        payload = request.get_json(force=True)
+        db = get_db(app.config["DATABASE"])
+        existing = db.execute("SELECT * FROM lifecycle_template_items WHERE id = ?", (item_id,)).fetchone()
+        if not existing:
+            db.close()
+            return jsonify({"error": "Template item not found."}), 404
+        db.execute(
+            """
+            UPDATE lifecycle_template_items
+            SET stage = ?, activity = ?, default_status = ?, default_responsible_party = ?,
+                start_day_offset = ?, target_due_day_offset = ?, default_cortave_owner = ?,
+                default_account_owner = ?, link = ?, notes = ?
+            WHERE id = ?
+            """,
+            (
+                clean_text(payload.get("stage") or existing["stage"]),
+                clean_text(payload.get("activity") or existing["activity"]),
+                clean_text(payload.get("defaultStatus") or payload.get("default_status") or existing["default_status"]),
+                clean_text(payload.get("defaultResponsibleParty") or payload.get("default_responsible_party") or existing["default_responsible_party"]),
+                clean_int(payload.get("startDayOffset") or payload.get("start_day_offset")) if payload.get("startDayOffset") not in (None, "") else existing["start_day_offset"],
+                clean_int(payload.get("targetDueDayOffset") or payload.get("target_due_day_offset")) if payload.get("targetDueDayOffset") not in (None, "") else existing["target_due_day_offset"],
+                clean_text(payload.get("defaultCortaveOwner") or payload.get("default_cortave_owner") or existing["default_cortave_owner"]),
+                clean_text(payload.get("defaultAccountOwner") or payload.get("default_account_owner") or existing["default_account_owner"]),
+                clean_text(payload.get("link") or existing["link"]),
+                clean_text(payload.get("notes") or existing["notes"]),
+                item_id,
+            ),
+        )
+        db.commit()
+        db.close()
+        return jsonify({"ok": True})
+
     @app.get("/api/dashboard")
     def dashboard_data() -> Response:
         db = get_db(app.config["DATABASE"])
         today = date.today().isoformat()
         week_end = (date.today() + timedelta(days=7)).isoformat()
         records = [record_to_dict(row) for row in db.execute("SELECT * FROM tracker_records ORDER BY updated_at DESC").fetchall()]
+        plans = query_account_plans(app.config["DATABASE"], "")
+        plan_summary = account_plan_summary(app.config["DATABASE"], plans)
         summary = {
             "totalI20": count_where(records, trackerType="I20"),
             "totalD20": count_where(records, trackerType="D20"),
@@ -300,6 +461,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             "onHold": count_where(records, status="On Hold"),
             "inProgress": count_where(records, status="In Progress"),
             "notStarted": count_where(records, status="Not Started"),
+            "accountPlans": plans,
+            "accountPlanSummary": plan_summary,
         }
         return jsonify(summary)
 
@@ -712,6 +875,85 @@ def init_db(database_path: str) -> None:
     )
     db.execute(
         """
+        CREATE TABLE IF NOT EXISTS lifecycle_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_name TEXT NOT NULL,
+            account_type TEXT NOT NULL,
+            description TEXT,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(template_name, account_type)
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lifecycle_template_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lifecycle_template_id INTEGER NOT NULL,
+            sort_order INTEGER NOT NULL,
+            stage TEXT NOT NULL,
+            activity TEXT NOT NULL,
+            default_status TEXT NOT NULL,
+            default_responsible_party TEXT,
+            start_day_offset INTEGER,
+            target_due_day_offset INTEGER,
+            default_cortave_owner TEXT,
+            default_account_owner TEXT,
+            link TEXT,
+            notes TEXT,
+            FOREIGN KEY(lifecycle_template_id) REFERENCES lifecycle_templates(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS account_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_name TEXT NOT NULL,
+            account_type TEXT NOT NULL,
+            plan_owner TEXT NOT NULL,
+            kick_off_date TEXT NOT NULL,
+            target_go_live_date TEXT,
+            notes TEXT,
+            lifecycle_template_id INTEGER,
+            partner_id INTEGER,
+            partner_name TEXT,
+            master_workbook_link TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(lifecycle_template_id) REFERENCES lifecycle_templates(id),
+            FOREIGN KEY(partner_id) REFERENCES partners(id) ON DELETE SET NULL
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lifecycle_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_plan_id INTEGER NOT NULL,
+            sort_order INTEGER NOT NULL,
+            stage TEXT NOT NULL,
+            activity TEXT NOT NULL,
+            status TEXT NOT NULL,
+            responsible_party TEXT,
+            start_day_offset INTEGER,
+            actual_start_date TEXT,
+            target_due_day_offset INTEGER,
+            due_date TEXT,
+            cortave_owner TEXT,
+            account_owner TEXT,
+            link TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(account_plan_id) REFERENCES account_plans(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        """
         CREATE TABLE IF NOT EXISTS org_impact_rows (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             section TEXT NOT NULL,
@@ -740,6 +982,7 @@ def init_db(database_path: str) -> None:
     ensure_default_lifecycle_workbook(db)
     ensure_tracker_record_columns(db)
     seed_options(db)
+    seed_lifecycle_templates(db)
     db.commit()
     db.close()
 
@@ -1553,6 +1796,292 @@ def clean_number_or_text(value: Any) -> Any:
         return round(number, 2)
     except (ValueError, TypeError):
         return text
+
+
+def seed_lifecycle_templates(db: sqlite3.Connection) -> None:
+    seed_lifecycle_template(
+        db,
+        "Innovator Journey",
+        "Innovator",
+        "Default lifecycle template for Innovator / partner account plans from the I20 Tracker workbook sheet.",
+        INNOVATOR_TEMPLATE_ITEMS,
+    )
+    seed_lifecycle_template(
+        db,
+        "Direct Customer Journey",
+        "Direct Customer",
+        "Default lifecycle template for Direct Customer account plans from the D20 Tracker workbook sheet.",
+        DIRECT_TEMPLATE_ITEMS,
+    )
+
+
+def seed_lifecycle_template(db: sqlite3.Connection, name: str, account_type: str, description: str, items: list[tuple[str, str, str, int, int]]) -> None:
+    now = utc_now()
+    existing = db.execute(
+        "SELECT id FROM lifecycle_templates WHERE template_name = ? AND account_type = ?",
+        (name, account_type),
+    ).fetchone()
+    if existing:
+        template_id = existing["id"]
+    else:
+        cursor = db.execute(
+            """
+            INSERT INTO lifecycle_templates (template_name, account_type, description, is_default, created_at, updated_at)
+            VALUES (?, ?, ?, 1, ?, ?)
+            """,
+            (name, account_type, description, now, now),
+        )
+        template_id = cursor.lastrowid
+    item_count = db.execute(
+        "SELECT COUNT(*) AS count FROM lifecycle_template_items WHERE lifecycle_template_id = ?",
+        (template_id,),
+    ).fetchone()["count"]
+    if item_count:
+        return
+    for index, (stage, activity, owner, start_day, due_day) in enumerate(items, start=1):
+        db.execute(
+            """
+            INSERT INTO lifecycle_template_items
+                (lifecycle_template_id, sort_order, stage, activity, default_status,
+                 default_responsible_party, start_day_offset, target_due_day_offset,
+                 default_cortave_owner, default_account_owner, link, notes)
+            VALUES (?, ?, ?, ?, 'Not Started', ?, ?, ?, ?, '', '', '')
+            """,
+            (template_id, index, stage, activity, owner, start_day, due_day, owner),
+        )
+
+
+def validate_account_plan_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    plan = {
+        "account_name": clean_text(payload.get("accountName") or payload.get("account_name")),
+        "account_type": clean_text(payload.get("accountType") or payload.get("account_type")),
+        "plan_owner": clean_text(payload.get("planOwner") or payload.get("plan_owner")),
+        "kick_off_date": clean_date(payload.get("kickOffDate") or payload.get("kick_off_date")),
+        "target_go_live_date": clean_date(payload.get("targetGoLiveDate") or payload.get("target_go_live_date")),
+        "notes": clean_text(payload.get("notes")),
+        "partner_id": clean_int(payload.get("partnerId") or payload.get("partner_id")),
+    }
+    errors = []
+    if not plan["account_name"]:
+        errors.append("Account name is required.")
+    if plan["account_type"] not in ACCOUNT_TYPES:
+        errors.append("Account type must be Innovator or Direct Customer.")
+    if not plan["plan_owner"]:
+        errors.append("Plan owner is required.")
+    if not plan["kick_off_date"]:
+        errors.append("Kick-off date is required.")
+    return plan, errors
+
+
+def create_account_plan(database_path: str, plan: dict[str, Any]) -> int:
+    db = get_db(database_path)
+    template = db.execute(
+        "SELECT * FROM lifecycle_templates WHERE account_type = ? AND is_default = 1 ORDER BY id LIMIT 1",
+        (plan["account_type"],),
+    ).fetchone()
+    if not template:
+        db.close()
+        raise ValueError("No default template exists for that account type.")
+    partner_name = ""
+    workbook_link = ""
+    if plan.get("partner_id"):
+        partner = db.execute("SELECT * FROM partners WHERE id = ?", (plan["partner_id"],)).fetchone()
+        if partner:
+            partner_name = partner["partner_name"] or ""
+            workbook_link = partner["workbook_link"] or ""
+    now = utc_now()
+    cursor = db.execute(
+        """
+        INSERT INTO account_plans
+            (account_name, account_type, plan_owner, kick_off_date, target_go_live_date, notes,
+             lifecycle_template_id, partner_id, partner_name, master_workbook_link, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            plan["account_name"], plan["account_type"], plan["plan_owner"], plan["kick_off_date"],
+            plan["target_go_live_date"], plan["notes"], template["id"], plan.get("partner_id"),
+            partner_name, workbook_link, now, now,
+        ),
+    )
+    plan_id = cursor.lastrowid
+    template_items = db.execute(
+        "SELECT * FROM lifecycle_template_items WHERE lifecycle_template_id = ? ORDER BY sort_order",
+        (template["id"],),
+    ).fetchall()
+    kick_off = datetime.strptime(plan["kick_off_date"], "%Y-%m-%d").date()
+    for item in template_items:
+        actual_start = add_days(kick_off, item["start_day_offset"])
+        due_date = add_days(kick_off, item["target_due_day_offset"])
+        db.execute(
+            """
+            INSERT INTO lifecycle_items
+                (account_plan_id, sort_order, stage, activity, status, responsible_party,
+                 start_day_offset, actual_start_date, target_due_day_offset, due_date,
+                 cortave_owner, account_owner, link, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                plan_id, item["sort_order"], item["stage"], item["activity"], item["default_status"],
+                item["default_responsible_party"], item["start_day_offset"], actual_start,
+                item["target_due_day_offset"], due_date, item["default_cortave_owner"],
+                item["default_account_owner"], item["link"], item["notes"], now, now,
+            ),
+        )
+    db.commit()
+    db.close()
+    return plan_id
+
+
+def add_days(start: date, offset: Any) -> str:
+    try:
+        days = int(offset or 0)
+    except (TypeError, ValueError):
+        days = 0
+    return (start + timedelta(days=days)).isoformat()
+
+
+def query_account_plans(database_path: str, account_type: str = "") -> list[dict[str, Any]]:
+    clauses = []
+    params: list[Any] = []
+    if account_type in ACCOUNT_TYPES:
+        clauses.append("ap.account_type = ?")
+        params.append(account_type)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    db = get_db(database_path)
+    rows = db.execute(
+        f"""
+        SELECT ap.*, lt.template_name,
+               SUM(CASE WHEN li.status != 'Completed' AND li.due_date < ? THEN 1 ELSE 0 END) AS overdue_items,
+               SUM(CASE WHEN li.status = 'On Hold' THEN 1 ELSE 0 END) AS on_hold_items,
+               SUM(CASE WHEN li.status = 'Completed' THEN 1 ELSE 0 END) AS completed_items,
+               COUNT(li.id) AS total_items
+        FROM account_plans ap
+        LEFT JOIN lifecycle_templates lt ON lt.id = ap.lifecycle_template_id
+        LEFT JOIN lifecycle_items li ON li.account_plan_id = ap.id
+        {where}
+        GROUP BY ap.id
+        ORDER BY ap.updated_at DESC, ap.account_name ASC
+        """,
+        [date.today().isoformat(), *params],
+    ).fetchall()
+    db.close()
+    return [account_plan_to_dict(row) for row in rows]
+
+
+def get_account_plan(database_path: str, plan_id: int) -> dict[str, Any] | None:
+    plans = query_account_plans(database_path, "")
+    plan = next((item for item in plans if item["id"] == plan_id), None)
+    if plan:
+        plan["items"] = query_lifecycle_items(database_path, plan_id)
+    return plan
+
+
+def account_plan_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    total = row["total_items"] or 0
+    completed = row["completed_items"] or 0
+    return {
+        "id": row["id"],
+        "accountName": row["account_name"],
+        "accountType": row["account_type"],
+        "planOwner": row["plan_owner"],
+        "kickOffDate": row["kick_off_date"],
+        "targetGoLiveDate": row["target_go_live_date"] or "",
+        "notes": row["notes"] or "",
+        "templateName": row["template_name"] or "",
+        "partnerId": row["partner_id"],
+        "partnerName": row["partner_name"] or "",
+        "masterWorkbookLink": row["master_workbook_link"] or "",
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+        "totalItems": total,
+        "completedItems": completed,
+        "overdueItems": row["overdue_items"] or 0,
+        "onHoldItems": row["on_hold_items"] or 0,
+        "isAtRisk": bool((row["overdue_items"] or 0) > 0 or (row["on_hold_items"] or 0) > 0),
+        "isLive": bool(total > 0 and total == completed),
+    }
+
+
+def query_lifecycle_items(database_path: str, plan_id: int) -> list[dict[str, Any]]:
+    db = get_db(database_path)
+    rows = db.execute("SELECT * FROM lifecycle_items WHERE account_plan_id = ? ORDER BY sort_order", (plan_id,)).fetchall()
+    db.close()
+    return [lifecycle_item_to_dict(row) for row in rows]
+
+
+def lifecycle_item_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "accountPlanId": row["account_plan_id"],
+        "sortOrder": row["sort_order"],
+        "stage": row["stage"],
+        "activity": row["activity"],
+        "status": row["status"],
+        "responsibleParty": row["responsible_party"] or "",
+        "startDayOffset": row["start_day_offset"],
+        "actualStartDate": row["actual_start_date"] or "",
+        "targetDueDayOffset": row["target_due_day_offset"],
+        "dueDate": row["due_date"] or "",
+        "cortaveOwner": row["cortave_owner"] or "",
+        "accountOwner": row["account_owner"] or "",
+        "link": row["link"] or "",
+        "notes": row["notes"] or "",
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+        "isOverdue": bool(row["due_date"] and row["due_date"] < date.today().isoformat() and row["status"] != "Completed"),
+    }
+
+
+def account_plan_summary(database_path: str, plans: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "totalInnovators": sum(1 for plan in plans if plan["accountType"] == "Innovator"),
+        "totalDirectCustomers": sum(1 for plan in plans if plan["accountType"] == "Direct Customer"),
+        "innovatorPlansInProgress": sum(1 for plan in plans if plan["accountType"] == "Innovator" and not plan["isLive"]),
+        "directCustomerPlansInProgress": sum(1 for plan in plans if plan["accountType"] == "Direct Customer" and not plan["isLive"]),
+        "innovatorsLive": sum(1 for plan in plans if plan["accountType"] == "Innovator" and plan["isLive"]),
+        "directCustomersLive": sum(1 for plan in plans if plan["accountType"] == "Direct Customer" and plan["isLive"]),
+        "overduePlans": sum(1 for plan in plans if plan["overdueItems"] > 0),
+        "plansAtRisk": sum(1 for plan in plans if plan["isAtRisk"]),
+    }
+
+
+def list_lifecycle_templates(database_path: str) -> list[dict[str, Any]]:
+    db = get_db(database_path)
+    rows = db.execute("SELECT * FROM lifecycle_templates ORDER BY account_type, is_default DESC, template_name").fetchall()
+    templates = []
+    for row in rows:
+        templates.append({
+            "id": row["id"],
+            "templateName": row["template_name"],
+            "accountType": row["account_type"],
+            "description": row["description"] or "",
+            "isDefault": bool(row["is_default"]),
+            "createdAt": row["created_at"],
+            "updatedAt": row["updated_at"],
+        })
+    db.close()
+    return templates
+
+
+def list_lifecycle_template_items(database_path: str, template_id: int) -> list[dict[str, Any]]:
+    db = get_db(database_path)
+    rows = db.execute("SELECT * FROM lifecycle_template_items WHERE lifecycle_template_id = ? ORDER BY sort_order", (template_id,)).fetchall()
+    db.close()
+    return [{
+        "id": row["id"],
+        "lifecycleTemplateId": row["lifecycle_template_id"],
+        "sortOrder": row["sort_order"],
+        "stage": row["stage"],
+        "activity": row["activity"],
+        "defaultStatus": row["default_status"],
+        "defaultResponsibleParty": row["default_responsible_party"] or "",
+        "startDayOffset": row["start_day_offset"],
+        "targetDueDayOffset": row["target_due_day_offset"],
+        "defaultCortaveOwner": row["default_cortave_owner"] or "",
+        "defaultAccountOwner": row["default_account_owner"] or "",
+        "link": row["link"] or "",
+        "notes": row["notes"] or "",
+    } for row in rows]
 
 
 if __name__ == "__main__":

@@ -344,6 +344,61 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("Partners sheet", response.get_json()["error"])
 
+    def test_default_lifecycle_templates_and_account_plan_creation(self):
+        templates = self.client.get("/api/lifecycle-templates").get_json()["templates"]
+        by_type = {template["accountType"]: template for template in templates}
+        self.assertIn("Innovator", by_type)
+        self.assertIn("Direct Customer", by_type)
+
+        innovator_items = self.client.get(f"/api/lifecycle-templates/{by_type['Innovator']['id']}/items").get_json()["items"]
+        direct_items = self.client.get(f"/api/lifecycle-templates/{by_type['Direct Customer']['id']}/items").get_json()["items"]
+        self.assertEqual(len(innovator_items), 26)
+        self.assertEqual(len(direct_items), 22)
+        self.assertEqual(innovator_items[0]["stage"], "I0")
+        self.assertEqual(innovator_items[-1]["activity"], "Innovator Live")
+        self.assertEqual(direct_items[0]["stage"], "D0")
+        self.assertEqual(direct_items[-1]["activity"], "customer Live")
+
+        create_response = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Deloitte",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2026-06-01",
+                "targetGoLiveDate": "2026-10-01",
+                "notes": "Partner plan",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        plan_id = create_response.get_json()["id"]
+        items = self.client.get(f"/api/account-plans/{plan_id}/items").get_json()["items"]
+        self.assertEqual(len(items), 26)
+        self.assertEqual(items[0]["actualStartDate"], "2026-06-01")
+        self.assertEqual(items[1]["dueDate"], "2026-06-08")
+        self.assertEqual(items[-1]["dueDate"], "2026-07-21")
+
+        summary = self.client.get("/api/account-plans").get_json()["summary"]
+        self.assertEqual(summary["totalInnovators"], 1)
+        self.assertEqual(summary["totalDirectCustomers"], 0)
+
+    def test_direct_customer_account_plan_uses_customer_language(self):
+        create_response = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Acme",
+                "accountType": "Direct Customer",
+                "planOwner": "Wade",
+                "kickOffDate": "2026-06-01",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        items = self.client.get(f"/api/account-plans/{create_response.get_json()['id']}/items").get_json()["items"]
+        activities = [item["activity"] for item in items]
+        self.assertIn("customer signs EULA agreement", activities)
+        self.assertIn("customer Live", activities)
+        self.assertNotIn("Innovator signs agreement", activities)
+
 
 if __name__ == "__main__":
     unittest.main()

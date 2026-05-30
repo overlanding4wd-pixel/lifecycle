@@ -635,6 +635,7 @@ textarea {
 
     .filters,
     .metric-grid,
+    .account-plan-metrics,
     .partner-metrics,
     .org-impact-metrics,
     .two-column,
@@ -671,6 +672,7 @@ textarea {
     .nav,
     .filters,
     .metric-grid,
+    .account-plan-metrics,
     .partner-metrics,
     .org-impact-metrics,
     .two-column,
@@ -821,4 +823,29 @@ textarea {
 
 .org-impact-table {
     min-width: 520px;
+}
+
+.account-plan-form {
+    grid-template-columns: repeat(3, minmax(180px, 1fr)) auto;
+}
+
+.account-plan-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 20px;
+}
+
+.compact-filter {
+    min-width: 220px;
+}
+
+.account-plan-table {
+    min-width: 980px;
+}
+
+.template-card {
+    overflow: hidden;
+}
+
+.template-table {
+    min-width: 760px;
 }

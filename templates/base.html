@@ -19,9 +19,9 @@
                 </div>
             </div>
             <nav class="nav">
-                <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Overview Dashboard</a>
-                <a href="{{ url_for('tracker_page', tracker_type='I20') }}" class="{{ 'active' if tracker_type|default('') == 'I20' else '' }}">I20 Tracker</a>
-                <a href="{{ url_for('tracker_page', tracker_type='D20') }}" class="{{ 'active' if tracker_type|default('') == 'D20' else '' }}">D20 Tracker</a>
+                <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Master Dashboard</a>
+                <a href="{{ url_for('tracker_page', tracker_type='I20') }}" class="{{ 'active' if tracker_type|default('') == 'I20' else '' }}">Innovator Journey</a>
+                <a href="{{ url_for('tracker_page', tracker_type='D20') }}" class="{{ 'active' if tracker_type|default('') == 'D20' else '' }}">Direct Customer Journey</a>
                 <a href="{{ url_for('partners_page') }}" class="{{ 'active' if request.endpoint == 'partners_page' else '' }}">Master Partner Dashboard</a>
                 {% if current_user.role == 'admin' %}
                 <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Data Validation / Settings</a>
@@ -35,7 +35,7 @@
                 <div class="topbar-brand">
                     <img src="{{ url_for('static', filename='cortave-logo.png') }}" alt="Cortave logo" class="topbar-logo">
                     <div>
-                        <p class="eyebrow">Lifecycle Workbook Replacement</p>
+                        <p class="eyebrow">Lifecycle Plan Management</p>
                         <h1>{{ page_title }}</h1>
                     </div>
                 </div>

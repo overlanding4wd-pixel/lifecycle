@@ -3,13 +3,98 @@
 {% block content %}
 <section class="dashboard" data-page="dashboard">
     {% include "_linked_partner.html" %}
+
+    <section class="panel account-plan-create-panel">
+        <div class="panel-header">
+            <div>
+                <h2>Create Account Plan</h2>
+                <p>Is this an Innovator/Partner plan or a Direct Customer plan? The selected lifecycle template creates the plan items automatically.</p>
+            </div>
+        </div>
+        <form class="filters account-plan-form" data-account-plan-form>
+            <label>
+                Account name
+                <input name="accountName" required placeholder="Partner or customer name">
+            </label>
+            <label>
+                Account type
+                <select name="accountType" required>
+                    <option value="Innovator">Innovator / Partner</option>
+                    <option value="Direct Customer">Direct Customer</option>
+                </select>
+            </label>
+            <label>
+                Plan owner
+                <input name="planOwner" required placeholder="Owner">
+            </label>
+            <label>
+                Start / kick-off date
+                <input type="date" name="kickOffDate" required>
+            </label>
+            <label>
+                Target go-live date
+                <input type="date" name="targetGoLiveDate">
+            </label>
+            <label>
+                Notes
+                <input name="notes" placeholder="Optional context">
+            </label>
+            <button class="button primary" type="submit">Create Account Plan</button>
+        </form>
+        <div class="form-errors" data-account-plan-errors></div>
+    </section>
+
+    <div class="card-grid metric-grid account-plan-metrics">
+        <div class="metric-card"><span>Total Innovators</span><strong data-plan-metric="totalInnovators">0</strong></div>
+        <div class="metric-card"><span>Total Direct Customers</span><strong data-plan-metric="totalDirectCustomers">0</strong></div>
+        <div class="metric-card"><span>Innovator Plans in progress</span><strong data-plan-metric="innovatorPlansInProgress">0</strong></div>
+        <div class="metric-card"><span>Direct Customer Plans in progress</span><strong data-plan-metric="directCustomerPlansInProgress">0</strong></div>
+        <div class="metric-card"><span>Innovators live</span><strong data-plan-metric="innovatorsLive">0</strong></div>
+        <div class="metric-card"><span>Direct Customers live</span><strong data-plan-metric="directCustomersLive">0</strong></div>
+        <div class="metric-card"><span>Overdue plans</span><strong data-plan-metric="overduePlans">0</strong></div>
+        <div class="metric-card"><span>Plans at risk</span><strong data-plan-metric="plansAtRisk">0</strong></div>
+    </div>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Account Plans</h2>
+                <p>Accounts are Innovators/partners or Direct Customers. Each plan is created from an editable lifecycle template.</p>
+            </div>
+            <label class="compact-filter">
+                Filter accounts
+                <select data-account-type-filter>
+                    <option value="">All</option>
+                    <option value="Innovator">Innovators</option>
+                    <option value="Direct Customer">Direct Customers</option>
+                </select>
+            </label>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table compact account-plan-table">
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th>Type</th>
+                        <th>Owner</th>
+                        <th>Template</th>
+                        <th>Kick-off</th>
+                        <th>Target go-live</th>
+                        <th>Progress</th>
+                        <th>Risk</th>
+                    </tr>
+                </thead>
+                <tbody data-account-plan-table></tbody>
+            </table>
+        </div>
+    </section>
     <div class="card-grid metric-grid">
         <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}">
-            <span>Total I20 records</span>
+            <span>Legacy I20 lifecycle items</span>
             <strong data-metric="totalI20">0</strong>
         </a>
         <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='D20') }}">
-            <span>Total D20 records</span>
+            <span>Legacy D20 lifecycle items</span>
             <strong data-metric="totalD20">0</strong>
         </a>
         <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?overdue=true">
