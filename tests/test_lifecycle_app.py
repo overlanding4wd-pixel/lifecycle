@@ -523,7 +523,7 @@ class LifecycleAppTest(unittest.TestCase):
             if plan["id"] == first["id"]
         )
         self.assertEqual(dashboard_plan["planStatus"], "In Progress")
-        self.assertEqual(dashboard_plan["healthStatus"], "Off Track")
+        self.assertEqual(dashboard_plan["healthStatus"], "Bad")
         self.assertEqual(dashboard_plan["nextStep"], "Kick-off date set for automated deadlines")
         self.assertGreater(dashboard_plan["daysOverdue"], 0)
 
@@ -559,7 +559,7 @@ class LifecycleAppTest(unittest.TestCase):
             },
         ).get_json()["plan"]
         self.assertEqual(future["planStatus"], "Not Started")
-        self.assertEqual(future["healthStatus"], "On Track")
+        self.assertEqual(future["healthStatus"], "Strong")
 
         item = future["items"][0]
         self.client.put(
@@ -575,7 +575,7 @@ class LifecycleAppTest(unittest.TestCase):
         )
         updated = self.client.get(f"/api/account-plans/{future['id']}").get_json()["plan"]
         self.assertEqual(updated["planStatus"], "In Progress")
-        self.assertEqual(updated["healthStatus"], "On Track")
+        self.assertEqual(updated["healthStatus"], "Strong")
 
         self.client.put(
             f"/api/lifecycle-items/{item['id']}",
@@ -590,7 +590,39 @@ class LifecycleAppTest(unittest.TestCase):
         )
         blocked = self.client.get(f"/api/account-plans/{future['id']}").get_json()["plan"]
         self.assertEqual(blocked["planStatus"], "On Hold")
-        self.assertEqual(blocked["healthStatus"], "Blocked")
+        self.assertEqual(blocked["healthStatus"], "Bad")
+
+
+    def test_terminal_plan_suppresses_next_step_and_health_is_na(self):
+        plan = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Terminal Plan",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2026-06-01",
+            },
+        ).get_json()["plan"]
+        live_item = next(item for item in plan["items"] if item["activity"] == "Innovator Live")
+        self.client.put(
+            f"/api/lifecycle-items/{live_item['id']}",
+            json={
+                "stage": live_item["stage"],
+                "activity": live_item["activity"],
+                "status": "Completed",
+                "responsibleParty": live_item["responsibleParty"],
+                "actualStartDate": live_item["actualStartDate"],
+                "dueDate": live_item["dueDate"],
+                "completedDate": live_item["dueDate"],
+            },
+        )
+        refreshed = self.client.get(f"/api/account-plans/{plan['id']}").get_json()["plan"]
+        self.assertEqual(refreshed["planStatus"], "Live")
+        self.assertEqual(refreshed["healthStatus"], "N/A")
+        self.assertEqual(refreshed["nextStep"], "")
+        self.assertEqual(refreshed["nextStepOwner"], "")
+        self.assertEqual(refreshed["nextDueDate"], "")
+        self.assertEqual(refreshed["daysOverdue"], 0)
 
     def test_status_badge_helper_is_shared_in_frontend(self):
         script = Path("static/app.js").read_text()
@@ -598,6 +630,7 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertIn("badge-status-in-progress", script)
         self.assertIn("badge-status-completed", script)
         self.assertIn("badge-status-off-track", script)
+        self.assertIn("badge-status-good", script)
         self.assertIn("data-status-preview", script)
         self.assertIn("select.hidden = true", script)
 

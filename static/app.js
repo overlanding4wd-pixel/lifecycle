@@ -1266,10 +1266,11 @@ function statusBadge(status) {
 
 function getStatusBadgeClass(status) {
     const normalized = String(status || "Not Started").toLowerCase();
-    if (["completed", "live", "complete", "on track"].includes(normalized)) return "badge-status-completed";
-    if (["in progress", "at risk"].includes(normalized)) return "badge-status-in-progress";
-    if (["on hold", "blocked"].includes(normalized)) return "badge-status-on-hold";
-    if (["overdue", "off track", "qualified out"].includes(normalized)) return "badge-status-off-track";
+    if (["completed", "live", "strong"].includes(normalized)) return "badge-status-completed";
+    if (["in progress", "good"].includes(normalized)) return "badge-status-good";
+    if (["on hold", "at risk"].includes(normalized)) return "badge-status-in-progress";
+    if (["bad"].includes(normalized)) return "badge-status-off-track";
+    if (["qualified out", "n/a"].includes(normalized)) return "badge-status-not-started";
     return "badge-status-not-started";
 }
 

@@ -216,7 +216,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-dashboard-ui-refine",
+            "asset_version": "20260530-health-na",
         }
 
     @app.route("/")
@@ -2290,52 +2290,94 @@ def enrich_account_plan_rollup(plan: dict[str, Any]) -> None:
     items = plan.get("items", [])
     incomplete = [item for item in items if item["status"] != "Completed"]
     overdue = [item for item in incomplete if item.get("dueDate") and item["dueDate"] < date.today().isoformat()]
-    next_item = sorted([item for item in incomplete if item.get("dueDate")], key=lambda item: item["dueDate"])[0] if any(item.get("dueDate") for item in incomplete) else (incomplete[0] if incomplete else None)
-    final_live = next((item for item in reversed(items) if "live" in item["activity"].lower()), None)
-    qualified = any("qualified out" in item["activity"].lower() and item["status"] == "Completed" for item in items)
     completed_count = sum(1 for item in items if item["status"] == "Completed")
-    on_hold_count = sum(1 for item in incomplete if item["status"] == "On Hold")
-    in_progress_count = sum(1 for item in items if item["status"] == "In Progress")
-    days_overdue = max((date_diff_today(item["dueDate"]) for item in overdue), default=0)
 
-    plan["currentStage"] = plan.get("currentStageOverride") or calculate_current_stage(items)
-    plan["nextStep"] = next_item["activity"] if next_item else ""
-    plan["nextStepOwner"] = (next_item.get("responsibleParty") or next_item.get("cortaveOwner") or next_item.get("accountOwner") or "") if next_item else ""
-    plan["nextDueDate"] = next_item.get("dueDate", "") if next_item else ""
-    plan["daysOverdue"] = days_overdue
-    plan["overdueItems"] = len(overdue)
-    plan["onHoldItems"] = on_hold_count
     plan["completedItems"] = completed_count
     plan["openItems"] = len(incomplete)
     plan["totalItems"] = len(items)
-    plan["isLive"] = bool(final_live and final_live["status"] == "Completed")
-    plan["isQualifiedOut"] = qualified or plan["currentStage"] == "Qualified Out"
+    plan["overdueItems"] = len(overdue)
+    plan["onHoldItems"] = sum(1 for item in incomplete if item["status"] == "On Hold")
+    plan["currentStage"] = plan.get("currentStageOverride") or calculate_current_stage(items)
+    plan["planStatus"] = calculatePlanStatus(plan, items)
+    plan["isLive"] = plan["planStatus"] == "Live"
+    plan["isQualifiedOut"] = plan["planStatus"] == "Qualified Out"
 
-    if plan["isQualifiedOut"]:
-        plan["planStatus"] = "Qualified Out"
-        plan["healthStatus"] = "Complete"
-    elif plan["isLive"]:
-        plan["planStatus"] = "Live"
-        plan["healthStatus"] = "Complete"
-    elif items and completed_count == len(items):
-        plan["planStatus"] = "Completed"
-        plan["healthStatus"] = "Complete"
-    elif on_hold_count:
-        plan["planStatus"] = "On Hold"
-        plan["healthStatus"] = "Blocked"
-    elif days_overdue > 7:
-        plan["planStatus"] = "In Progress" if (in_progress_count or completed_count) else "Not Started"
-        plan["healthStatus"] = "Off Track"
-    elif days_overdue > 0:
-        plan["planStatus"] = "In Progress" if (in_progress_count or completed_count) else "Not Started"
-        plan["healthStatus"] = "At Risk"
-    elif in_progress_count or completed_count:
-        plan["planStatus"] = "In Progress"
-        plan["healthStatus"] = "On Track"
+    next_item = calculateNextStep(plan, items)
+    if next_item:
+        plan["nextStep"] = next_item["activity"]
+        plan["nextStepOwner"] = next_item.get("responsibleParty") or next_item.get("cortaveOwner") or next_item.get("accountOwner") or ""
+        plan["nextDueDate"] = next_item.get("dueDate", "")
+        plan["daysOverdue"] = max((date_diff_today(item["dueDate"]) for item in overdue), default=0)
     else:
-        plan["planStatus"] = "Not Started"
-        plan["healthStatus"] = "On Track"
-    plan["isAtRisk"] = plan["healthStatus"] in {"At Risk", "Off Track", "Blocked"}
+        plan["nextStep"] = ""
+        plan["nextStepOwner"] = ""
+        plan["nextDueDate"] = ""
+        plan["daysOverdue"] = 0
+        if plan["planStatus"] not in {"Qualified Out", "Live", "Completed"}:
+            plan["daysOverdue"] = max((date_diff_today(item["dueDate"]) for item in overdue), default=0)
+
+    plan["healthStatus"] = calculatePlanHealth(plan, items)
+    plan["isAtRisk"] = plan["healthStatus"] in {"At Risk", "Bad"}
+
+
+def calculatePlanStatus(plan: dict[str, Any], lifecycleItems: list[dict[str, Any]]) -> str:
+    items = lifecycleItems
+    if plan.get("currentStageOverride") == "Qualified Out":
+        return "Qualified Out"
+    if any("qualified out" in item["activity"].lower() and item["status"] == "Completed" for item in items):
+        return "Qualified Out"
+    final_live = next((item for item in reversed(items) if "live" in item["activity"].lower()), None)
+    if final_live and final_live["status"] == "Completed":
+        return "Live"
+    if items and all(item["status"] == "Completed" for item in items):
+        return "Completed"
+    if any(item["status"] == "On Hold" for item in items if item["status"] != "Completed"):
+        return "On Hold"
+    if any(item["status"] == "In Progress" for item in items) or any(item["status"] == "Completed" for item in items):
+        return "In Progress"
+    return "Not Started"
+
+
+def calculatePlanHealth(plan: dict[str, Any], lifecycleItems: list[dict[str, Any]]) -> str:
+    if plan.get("planStatus") in {"Qualified Out", "Live", "Completed"}:
+        return "N/A"
+    items = lifecycleItems
+    if not items:
+        return "At Risk"
+    incomplete = [item for item in items if item["status"] != "Completed"]
+    if any(item["status"] == "On Hold" for item in incomplete):
+        return "Bad"
+    overdue_days = [date_diff_today(item["dueDate"]) for item in incomplete if item.get("dueDate") and item["dueDate"] < date.today().isoformat()]
+    if overdue_days and max(overdue_days) > 7:
+        return "Bad"
+    if overdue_days:
+        return "At Risk"
+    next_item = calculateNextStep(plan, items)
+    if not next_item:
+        return "At Risk"
+    owner = next_item.get("responsibleParty") or next_item.get("cortaveOwner") or next_item.get("accountOwner")
+    if not owner or not next_item.get("dueDate"):
+        return "At Risk"
+    stuck_days = date_diff_today((next_item.get("updatedAt") or next_item.get("createdAt") or "")[:10])
+    if stuck_days > 14:
+        return "Bad"
+    if stuck_days >= 7:
+        return "At Risk"
+    recent_cutoff = (date.today() - timedelta(days=7)).isoformat()
+    if any((item.get("completedDate") and item["completedDate"] >= recent_cutoff) or ((item.get("updatedAt") or "")[:10] >= recent_cutoff) for item in items):
+        return "Strong"
+    return "Good"
+
+
+def calculateNextStep(plan: dict[str, Any], lifecycleItems: list[dict[str, Any]]) -> dict[str, Any] | None:
+    status = plan.get("planStatus") or calculatePlanStatus(plan, lifecycleItems)
+    if status in {"Qualified Out", "Live", "Completed"}:
+        return None
+    incomplete = [item for item in lifecycleItems if item["status"] != "Completed"]
+    dated = [item for item in incomplete if item.get("dueDate")]
+    if dated:
+        return sorted(dated, key=lambda item: item["dueDate"])[0]
+    return incomplete[0] if incomplete else None
 
 
 def calculate_current_stage(items: list[dict[str, Any]]) -> str:
@@ -2370,7 +2412,7 @@ def count_next_actions_due(plans: list[dict[str, Any]]) -> int:
 
 def account_plan_summary(database_path: str, plans: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "totalActivePlans": sum(1 for plan in plans if not plan["isLive"] and not plan["isQualifiedOut"]),
+        "totalActivePlans": sum(1 for plan in plans if plan.get("planStatus") not in {"Live", "Qualified Out", "Completed"}),
         "totalInnovators": sum(1 for plan in plans if plan["accountType"] == "Innovator"),
         "totalDirectCustomers": sum(1 for plan in plans if plan["accountType"] == "Direct Customer"),
         "inProgress": sum(1 for plan in plans if plan.get("planStatus") == "In Progress"),
