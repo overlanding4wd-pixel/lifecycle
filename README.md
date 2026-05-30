@@ -68,6 +68,20 @@ When an Account Plan is created, the selected account type determines the templa
 
 Admins can view and edit lifecycle template items from Data Validation / Settings.
 
+
+### Refined Master Dashboard workflow
+
+The landing page is the portfolio-level **Master Dashboard**. It focuses on active Innovator and Direct Customer plans, with summary cards for active plans, Innovators, Direct Customers, In Progress, On Hold, Overdue, Live, and Qualified Out.
+
+From the Master Dashboard users can:
+
+- Create an Innovator Plan from the default Innovator Journey / I20 lifecycle template
+- Create a Direct Customer Plan from the default Direct Customer Journey / D20 lifecycle template
+- Filter and sort active plans by type, stage, health/status, owner, overdue state, live state, next due date, days overdue, stage, owner, and type
+- Open an Account Plan workspace to view, edit, add, or delete Lifecycle Items
+
+Current Stage is calculated from the next active/incomplete Lifecycle Item unless manually overridden on the Account Plan. Next Step is the nearest-due incomplete Lifecycle Item. Days Overdue is calculated from incomplete items with due dates before today. Live is true when the final live Lifecycle Item is completed.
+
 ## Master Partner Dashboard integration
 
 The app includes an add-on module for `Partner Dashboard.xlsx`:

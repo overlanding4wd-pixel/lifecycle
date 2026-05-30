@@ -215,7 +215,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-plan-scoped-tracker",
+            "asset_version": "20260530-portfolio-dashboard",
         }
 
     @app.route("/")
@@ -343,8 +343,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.get("/api/account-plans")
     def list_account_plans() -> Response:
-        account_type = clean_text(request.args.get("accountType"))
-        plans = query_account_plans(app.config["DATABASE"], account_type)
+        filters = parse_account_plan_filters(request.args)
+        plans = query_account_plans(app.config["DATABASE"], filters)
         return jsonify({"plans": plans, "summary": account_plan_summary(app.config["DATABASE"], plans)})
 
     @app.post("/api/account-plans")
@@ -377,6 +377,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         plan_owner = clean_text(payload.get("planOwner") or payload.get("plan_owner") or existing["plan_owner"])
         kick_off_date = clean_date(payload.get("kickOffDate") or payload.get("kick_off_date")) or existing["kick_off_date"]
         target_go_live_date = clean_date(payload.get("targetGoLiveDate") or payload.get("target_go_live_date")) or ""
+        territory = clean_text(payload.get("territory") if payload.get("territory") is not None else existing["territory"])
+        current_stage_override = clean_text(payload.get("currentStageOverride") or payload.get("current_stage_override") or existing["current_stage_override"])
         notes = clean_text(payload.get("notes") if payload.get("notes") is not None else existing["notes"])
         if not account_name or not plan_owner or not kick_off_date:
             db.close()
@@ -385,10 +387,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             """
             UPDATE account_plans
             SET account_name = ?, plan_owner = ?, kick_off_date = ?, target_go_live_date = ?,
-                notes = ?, updated_at = ?
+                territory = ?, current_stage_override = ?, notes = ?, updated_at = ?
             WHERE id = ?
             """,
-            (account_name, plan_owner, kick_off_date, target_go_live_date, notes, utc_now(), plan_id),
+            (account_name, plan_owner, kick_off_date, target_go_live_date, territory, current_stage_override, notes, utc_now(), plan_id),
         )
         db.commit()
         db.close()
@@ -411,7 +413,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             """
             UPDATE lifecycle_items
             SET stage = ?, activity = ?, status = ?, responsible_party = ?, actual_start_date = ?, due_date = ?,
-                cortave_owner = ?, account_owner = ?, link = ?, notes = ?, updated_at = ?
+                completed_date = ?, cortave_owner = ?, account_owner = ?, link = ?, notes = ?, next_action = ?, updated_at = ?
             WHERE id = ?
             """,
             (
@@ -421,14 +423,70 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 clean_text(payload.get("responsibleParty") or payload.get("responsible_party") or existing["responsible_party"]),
                 clean_date(payload.get("actualStartDate") or payload.get("actual_start_date")) or existing["actual_start_date"],
                 clean_date(payload.get("dueDate") or payload.get("due_date")) or existing["due_date"],
+                clean_date(payload.get("completedDate") or payload.get("completed_date")) or existing["completed_date"],
                 clean_text(payload.get("cortaveOwner") or payload.get("cortave_owner") or existing["cortave_owner"]),
                 clean_text(payload.get("accountOwner") or payload.get("account_owner") or existing["account_owner"]),
                 clean_text(payload.get("link") or existing["link"]),
-                clean_text(payload.get("notes") or existing["notes"]),
+                clean_text(payload.get("notes") if payload.get("notes") is not None else existing["notes"]),
+                clean_text(payload.get("nextAction") or payload.get("next_action") or existing["next_action"]),
                 utc_now(),
                 item_id,
             ),
         )
+        db.commit()
+        db.close()
+        return jsonify({"ok": True})
+
+    @app.post("/api/account-plans/<int:plan_id>/items")
+    @role_required("admin", "editor")
+    def add_lifecycle_item_route(plan_id: int) -> Response:
+        payload = request.get_json(force=True)
+        db = get_db(app.config["DATABASE"])
+        plan = db.execute("SELECT * FROM account_plans WHERE id = ?", (plan_id,)).fetchone()
+        if not plan:
+            db.close()
+            return jsonify({"error": "Account Plan not found."}), 404
+        next_sort = db.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM lifecycle_items WHERE account_plan_id = ?",
+            (plan_id,),
+        ).fetchone()["next_sort"]
+        now = utc_now()
+        db.execute(
+            """
+            INSERT INTO lifecycle_items
+                (account_plan_id, sort_order, stage, activity, status, responsible_party,
+                 start_day_offset, actual_start_date, target_due_day_offset, due_date, completed_date,
+                 cortave_owner, account_owner, link, notes, next_action, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                plan_id,
+                next_sort,
+                clean_text(payload.get("stage")) or ("I20" if plan["account_type"] == "Innovator" else "D20"),
+                clean_text(payload.get("activity")) or "New lifecycle item",
+                clean_text(payload.get("status")) or "Not Started",
+                clean_text(payload.get("responsibleParty") or payload.get("responsible_party")),
+                clean_date(payload.get("actualStartDate") or payload.get("actual_start_date")),
+                clean_date(payload.get("dueDate") or payload.get("due_date")),
+                clean_date(payload.get("completedDate") or payload.get("completed_date")),
+                clean_text(payload.get("cortaveOwner") or payload.get("cortave_owner")),
+                clean_text(payload.get("accountOwner") or payload.get("account_owner")),
+                clean_text(payload.get("link")),
+                clean_text(payload.get("notes")),
+                clean_text(payload.get("nextAction") or payload.get("next_action")),
+                now,
+                now,
+            ),
+        )
+        db.commit()
+        db.close()
+        return jsonify({"items": query_lifecycle_items(app.config["DATABASE"], plan_id)}), 201
+
+    @app.delete("/api/lifecycle-items/<int:item_id>")
+    @role_required("admin", "editor")
+    def delete_lifecycle_item_route(item_id: int) -> Response:
+        db = get_db(app.config["DATABASE"])
+        db.execute("DELETE FROM lifecycle_items WHERE id = ?", (item_id,))
         db.commit()
         db.close()
         return jsonify({"ok": True})
@@ -957,6 +1015,8 @@ def init_db(database_path: str) -> None:
             plan_owner TEXT NOT NULL,
             kick_off_date TEXT NOT NULL,
             target_go_live_date TEXT,
+            territory TEXT,
+            current_stage_override TEXT,
             notes TEXT,
             lifecycle_template_id INTEGER,
             partner_id INTEGER,
@@ -983,10 +1043,12 @@ def init_db(database_path: str) -> None:
             actual_start_date TEXT,
             target_due_day_offset INTEGER,
             due_date TEXT,
+            completed_date TEXT,
             cortave_owner TEXT,
             account_owner TEXT,
             link TEXT,
             notes TEXT,
+            next_action TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY(account_plan_id) REFERENCES account_plans(id) ON DELETE CASCADE
@@ -1020,6 +1082,8 @@ def init_db(database_path: str) -> None:
         """
     )
     ensure_partner_columns(db)
+    ensure_account_plan_columns(db)
+    ensure_lifecycle_item_columns(db)
     ensure_default_lifecycle_workbook(db)
     ensure_tracker_record_columns(db)
     seed_options(db)
@@ -1439,6 +1503,28 @@ def ensure_partner_columns(db: sqlite3.Connection) -> None:
     for name, column_type in columns.items():
         if name not in existing:
             db.execute(f"ALTER TABLE partners ADD COLUMN {name} {column_type}")
+
+
+def ensure_account_plan_columns(db: sqlite3.Connection) -> None:
+    existing = {row[1] for row in db.execute("PRAGMA table_info(account_plans)").fetchall()}
+    columns = {
+        "territory": "TEXT",
+        "current_stage_override": "TEXT",
+    }
+    for name, column_type in columns.items():
+        if name not in existing:
+            db.execute(f"ALTER TABLE account_plans ADD COLUMN {name} {column_type}")
+
+
+def ensure_lifecycle_item_columns(db: sqlite3.Connection) -> None:
+    existing = {row[1] for row in db.execute("PRAGMA table_info(lifecycle_items)").fetchall()}
+    columns = {
+        "completed_date": "TEXT",
+        "next_action": "TEXT",
+    }
+    for name, column_type in columns.items():
+        if name not in existing:
+            db.execute(f"ALTER TABLE lifecycle_items ADD COLUMN {name} {column_type}")
 
 
 def ensure_default_lifecycle_workbook(db: sqlite3.Connection) -> None:
@@ -1930,6 +2016,8 @@ def validate_account_plan_payload(payload: dict[str, Any]) -> tuple[dict[str, An
         "plan_owner": clean_text(payload.get("planOwner") or payload.get("plan_owner")),
         "kick_off_date": clean_date(payload.get("kickOffDate") or payload.get("kick_off_date")),
         "target_go_live_date": clean_date(payload.get("targetGoLiveDate") or payload.get("target_go_live_date")),
+        "territory": clean_text(payload.get("territory")),
+        "current_stage_override": clean_text(payload.get("currentStageOverride") or payload.get("current_stage_override")),
         "notes": clean_text(payload.get("notes")),
         "partner_id": clean_int(payload.get("partnerId") or payload.get("partner_id")),
     }
@@ -1965,13 +2053,13 @@ def create_account_plan(database_path: str, plan: dict[str, Any]) -> int:
     cursor = db.execute(
         """
         INSERT INTO account_plans
-            (account_name, account_type, plan_owner, kick_off_date, target_go_live_date, notes,
+            (account_name, account_type, plan_owner, kick_off_date, target_go_live_date, territory, current_stage_override, notes,
              lifecycle_template_id, partner_id, partner_name, master_workbook_link, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             plan["account_name"], plan["account_type"], plan["plan_owner"], plan["kick_off_date"],
-            plan["target_go_live_date"], plan["notes"], template["id"], plan.get("partner_id"),
+            plan["target_go_live_date"], plan["territory"], plan["current_stage_override"], plan["notes"], template["id"], plan.get("partner_id"),
             partner_name, workbook_link, now, now,
         ),
     )
@@ -1988,15 +2076,15 @@ def create_account_plan(database_path: str, plan: dict[str, Any]) -> int:
             """
             INSERT INTO lifecycle_items
                 (account_plan_id, sort_order, stage, activity, status, responsible_party,
-                 start_day_offset, actual_start_date, target_due_day_offset, due_date,
-                 cortave_owner, account_owner, link, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 start_day_offset, actual_start_date, target_due_day_offset, due_date, completed_date,
+                 cortave_owner, account_owner, link, notes, next_action, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 plan_id, item["sort_order"], item["stage"], item["activity"], item["default_status"],
                 item["default_responsible_party"], item["start_day_offset"], actual_start,
-                item["target_due_day_offset"], due_date, item["default_cortave_owner"],
-                item["default_account_owner"], item["link"], item["notes"], now, now,
+                item["target_due_day_offset"], due_date, "", item["default_cortave_owner"],
+                item["default_account_owner"], item["link"], item["notes"], "", now, now,
             ),
         )
     db.commit()
@@ -2012,16 +2100,25 @@ def add_days(start: date, offset: Any) -> str:
     return (start + timedelta(days=days)).isoformat()
 
 
-def query_account_plans(database_path: str, account_type: str = "") -> list[dict[str, Any]]:
-    clauses = []
-    params: list[Any] = []
-    if account_type in ACCOUNT_TYPES:
-        clauses.append("ap.account_type = ?")
-        params.append(account_type)
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+def parse_account_plan_filters(args: Any) -> dict[str, Any]:
+    return {
+        "account_type": clean_text(args.get("accountType") or args.get("account_type")),
+        "stage": clean_text(args.get("stage")),
+        "status": clean_text(args.get("status")),
+        "owner": clean_text(args.get("owner")),
+        "overdue": clean_text(args.get("overdue")).lower() in {"true", "1", "yes"},
+        "live": clean_text(args.get("live")),
+        "sort": clean_text(args.get("sort")) or "nextDueDate",
+        "direction": "DESC" if clean_text(args.get("direction")).lower() == "desc" else "ASC",
+    }
+
+
+def query_account_plans(database_path: str, filters: Any = "") -> list[dict[str, Any]]:
+    if isinstance(filters, str):
+        filters = {"account_type": filters, "stage": "", "status": "", "owner": "", "overdue": False, "live": "", "sort": "nextDueDate", "direction": "ASC"}
     db = get_db(database_path)
     rows = db.execute(
-        f"""
+        """
         SELECT ap.*, lt.template_name,
                SUM(CASE WHEN li.status != 'Completed' AND li.due_date < ? THEN 1 ELSE 0 END) AS overdue_items,
                SUM(CASE WHEN li.status = 'On Hold' THEN 1 ELSE 0 END) AS on_hold_items,
@@ -2030,14 +2127,18 @@ def query_account_plans(database_path: str, account_type: str = "") -> list[dict
         FROM account_plans ap
         LEFT JOIN lifecycle_templates lt ON lt.id = ap.lifecycle_template_id
         LEFT JOIN lifecycle_items li ON li.account_plan_id = ap.id
-        {where}
         GROUP BY ap.id
-        ORDER BY ap.updated_at DESC, ap.account_name ASC
         """,
-        [date.today().isoformat(), *params],
+        (date.today().isoformat(),),
     ).fetchall()
+    plans = [account_plan_to_dict(row) for row in rows]
+    for plan in plans:
+        plan["items"] = query_lifecycle_items(database_path, plan["id"])
+        enrich_account_plan_rollup(plan)
+    plans = filter_account_plans(plans, filters)
+    plans = sort_account_plans(plans, filters)
     db.close()
-    return [account_plan_to_dict(row) for row in rows]
+    return plans
 
 
 def get_account_plan(database_path: str, plan_id: int) -> dict[str, Any] | None:
@@ -2058,6 +2159,8 @@ def account_plan_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "planOwner": row["plan_owner"],
         "kickOffDate": row["kick_off_date"],
         "targetGoLiveDate": row["target_go_live_date"] or "",
+        "territory": row["territory"] or "",
+        "currentStageOverride": row["current_stage_override"] or "",
         "notes": row["notes"] or "",
         "templateName": row["template_name"] or "",
         "partnerId": row["partner_id"],
@@ -2071,6 +2174,13 @@ def account_plan_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "onHoldItems": row["on_hold_items"] or 0,
         "isAtRisk": bool((row["overdue_items"] or 0) > 0 or (row["on_hold_items"] or 0) > 0),
         "isLive": bool(total > 0 and total == completed),
+        "currentStage": row["current_stage_override"] or "",
+        "healthStatus": "On Track",
+        "nextStep": "",
+        "nextStepOwner": "",
+        "nextDueDate": "",
+        "daysOverdue": 0,
+        "isQualifiedOut": False,
     }
 
 
@@ -2094,26 +2204,120 @@ def lifecycle_item_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "actualStartDate": row["actual_start_date"] or "",
         "targetDueDayOffset": row["target_due_day_offset"],
         "dueDate": row["due_date"] or "",
+        "completedDate": row["completed_date"] or "",
         "cortaveOwner": row["cortave_owner"] or "",
         "accountOwner": row["account_owner"] or "",
         "link": row["link"] or "",
         "notes": row["notes"] or "",
+        "nextAction": row["next_action"] or "",
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
         "isOverdue": bool(row["due_date"] and row["due_date"] < date.today().isoformat() and row["status"] != "Completed"),
     }
 
 
+def filter_account_plans(plans: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
+    filtered = []
+    for plan in plans:
+        if filters.get("account_type") in ACCOUNT_TYPES and plan["accountType"] != filters["account_type"]:
+            continue
+        if filters.get("stage") and plan["currentStage"] != filters["stage"]:
+            continue
+        if filters.get("status") and plan["healthStatus"] != filters["status"]:
+            continue
+        if filters.get("owner") and plan["planOwner"] != filters["owner"] and plan["nextStepOwner"] != filters["owner"]:
+            continue
+        if filters.get("overdue") and plan["daysOverdue"] <= 0:
+            continue
+        if filters.get("live") == "live" and not plan["isLive"]:
+            continue
+        if filters.get("live") == "not-live" and plan["isLive"]:
+            continue
+        filtered.append(plan)
+    return filtered
+
+
+def sort_account_plans(plans: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
+    key = filters.get("sort") or "nextDueDate"
+    reverse = filters.get("direction") == "DESC"
+    def sort_key(plan: dict[str, Any]) -> Any:
+        if key == "daysOverdue":
+            return plan.get("daysOverdue") or 0
+        if key == "stage":
+            return plan.get("currentStage") or ""
+        if key == "owner":
+            return plan.get("planOwner") or ""
+        if key == "type":
+            return plan.get("accountType") or ""
+        return plan.get("nextDueDate") or "9999-12-31"
+    return sorted(plans, key=sort_key, reverse=reverse)
+
+
+def enrich_account_plan_rollup(plan: dict[str, Any]) -> None:
+    items = plan.get("items", [])
+    incomplete = [item for item in items if item["status"] != "Completed"]
+    overdue = [item for item in incomplete if item.get("dueDate") and item["dueDate"] < date.today().isoformat()]
+    next_item = sorted([item for item in incomplete if item.get("dueDate")], key=lambda item: item["dueDate"])[0] if any(item.get("dueDate") for item in incomplete) else (incomplete[0] if incomplete else None)
+    final_live = next((item for item in reversed(items) if "live" in item["activity"].lower()), None)
+    qualified = any("qualified out" in item["activity"].lower() and item["status"] == "Completed" for item in items)
+    plan["currentStage"] = plan.get("currentStageOverride") or calculate_current_stage(items)
+    plan["nextStep"] = next_item["activity"] if next_item else ""
+    plan["nextStepOwner"] = (next_item.get("responsibleParty") or next_item.get("cortaveOwner") or next_item.get("accountOwner") or "") if next_item else ""
+    plan["nextDueDate"] = next_item.get("dueDate", "") if next_item else ""
+    plan["daysOverdue"] = max((date_diff_today(item["dueDate"]) for item in overdue), default=0)
+    plan["overdueItems"] = len(overdue)
+    plan["onHoldItems"] = sum(1 for item in items if item["status"] == "On Hold")
+    plan["completedItems"] = sum(1 for item in items if item["status"] == "Completed")
+    plan["totalItems"] = len(items)
+    plan["isLive"] = bool(final_live and final_live["status"] == "Completed")
+    plan["isQualifiedOut"] = qualified or plan["currentStage"] == "Qualified Out"
+    if plan["isQualifiedOut"]:
+        plan["healthStatus"] = "Qualified Out"
+    elif plan["isLive"]:
+        plan["healthStatus"] = "Live"
+    elif plan["onHoldItems"]:
+        plan["healthStatus"] = "On Hold"
+    elif plan["overdueItems"]:
+        plan["healthStatus"] = "Overdue"
+    elif any(item["status"] == "In Progress" for item in items):
+        plan["healthStatus"] = "In Progress"
+    else:
+        plan["healthStatus"] = "Not Started"
+    plan["isAtRisk"] = plan["healthStatus"] in {"On Hold", "Overdue"}
+
+
+def calculate_current_stage(items: list[dict[str, Any]]) -> str:
+    active = [item for item in items if item["status"] != "Completed"]
+    if not active and items:
+        return "Live"
+    if any("qualified out" in item["activity"].lower() and item["status"] == "Completed" for item in items):
+        return "Qualified Out"
+    target = active[0] if active else (items[-1] if items else None)
+    return target["stage"] if target else ""
+
+
+def date_diff_today(value: str) -> int:
+    try:
+        return (date.today() - datetime.strptime(value, "%Y-%m-%d").date()).days
+    except ValueError:
+        return 0
+
+
 def account_plan_summary(database_path: str, plans: list[dict[str, Any]]) -> dict[str, Any]:
     return {
+        "totalActivePlans": sum(1 for plan in plans if not plan["isLive"] and not plan["isQualifiedOut"]),
         "totalInnovators": sum(1 for plan in plans if plan["accountType"] == "Innovator"),
         "totalDirectCustomers": sum(1 for plan in plans if plan["accountType"] == "Direct Customer"),
+        "inProgress": sum(1 for plan in plans if plan["healthStatus"] == "In Progress"),
+        "onHold": sum(1 for plan in plans if plan["healthStatus"] == "On Hold"),
+        "overduePlans": sum(1 for plan in plans if plan["overdueItems"] > 0),
+        "live": sum(1 for plan in plans if plan["isLive"]),
+        "qualifiedOut": sum(1 for plan in plans if plan["isQualifiedOut"]),
+        "plansAtRisk": sum(1 for plan in plans if plan["isAtRisk"]),
         "innovatorPlansInProgress": sum(1 for plan in plans if plan["accountType"] == "Innovator" and not plan["isLive"]),
         "directCustomerPlansInProgress": sum(1 for plan in plans if plan["accountType"] == "Direct Customer" and not plan["isLive"]),
         "innovatorsLive": sum(1 for plan in plans if plan["accountType"] == "Innovator" and plan["isLive"]),
         "directCustomersLive": sum(1 for plan in plans if plan["accountType"] == "Direct Customer" and plan["isLive"]),
-        "overduePlans": sum(1 for plan in plans if plan["overdueItems"] > 0),
-        "plansAtRisk": sum(1 for plan in plans if plan["isAtRisk"]),
     }
 
 

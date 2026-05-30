@@ -62,19 +62,16 @@ textarea {
     margin-bottom: 32px;
 }
 
-.brand-logo-card {
+.brand-mark {
     align-items: center;
     background: #fff;
     border-radius: 12px;
+    color: var(--blue-800);
     display: flex;
-    min-height: 60px;
-    padding: 8px 10px;
-}
-
-.brand-logo {
-    display: block;
-    height: auto;
-    width: 190px;
+    font-weight: 800;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
 }
 
 .brand span,
@@ -855,7 +852,7 @@ textarea {
 }
 
 .lifecycle-item-table {
-    min-width: 1700px;
+    min-width: 1900px;
 }
 
 .lifecycle-item-table input,
@@ -866,4 +863,28 @@ textarea {
 
 .lifecycle-item-table textarea[name="activity"] {
     min-width: 260px;
+}
+
+.portfolio-filters {
+    grid-template-columns: repeat(6, minmax(130px, 1fr)) auto auto;
+}
+
+.dashboard-hero {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.active-plans-table {
+    min-width: 1400px;
+}
+
+.plan-workspace-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 20px;
+}
+
+.add-lifecycle-item-form {
+    grid-template-columns: repeat(6, minmax(120px, 1fr)) auto;
 }

@@ -2,218 +2,152 @@
 
 {% block content %}
 <section class="dashboard" data-page="dashboard">
-    {% include "_linked_partner.html" %}
+    <section class="dashboard-hero panel">
+        <div>
+            <p class="eyebrow">Portfolio lifecycle tracking</p>
+            <h2>Master Dashboard</h2>
+            <p>Track Innovator / Partner Plans and Direct Customer Plans from first engagement through live or qualified out.</p>
+        </div>
+        <div class="actions">
+            <button class="button primary" data-create-plan-type="Innovator">Create Innovator Plan</button>
+            <button class="button secondary" data-create-plan-type="Direct Customer">Create Direct Customer Plan</button>
+        </div>
+    </section>
 
-    <section class="panel account-plan-create-panel">
+    <section class="panel account-plan-create-panel" data-create-plan-panel hidden>
         <div class="panel-header">
             <div>
-                <h2>Create Account Plan</h2>
-                <p>Is this an Innovator/Partner plan or a Direct Customer plan? The selected lifecycle template creates the plan items automatically.</p>
+                <h2 data-create-plan-title>Create Account Plan</h2>
+                <p data-create-plan-help>The default lifecycle items will be seeded automatically from the selected template.</p>
             </div>
         </div>
         <form class="filters account-plan-form" data-account-plan-form>
+            <input type="hidden" name="accountType">
             <label>
-                Account name
-                <input name="accountName" required placeholder="Partner or customer name">
+                <span data-account-name-label>Account name</span>
+                <input name="accountName" required placeholder="Name">
             </label>
             <label>
-                Account type
-                <select name="accountType" required>
-                    <option value="Innovator">Innovator / Partner</option>
-                    <option value="Direct Customer">Direct Customer</option>
-                </select>
-            </label>
-            <label>
-                Plan owner
+                Owner
                 <input name="planOwner" required placeholder="Owner">
+            </label>
+            <label>
+                Territory
+                <input name="territory" placeholder="Optional territory">
             </label>
             <label>
                 Start / kick-off date
                 <input type="date" name="kickOffDate" required>
             </label>
             <label>
-                Target go-live date
+                Target live date
                 <input type="date" name="targetGoLiveDate">
             </label>
             <label>
                 Notes
                 <input name="notes" placeholder="Optional context">
             </label>
-            <button class="button primary" type="submit">Create Account Plan</button>
+            <button class="button primary" type="submit">Create Plan</button>
+            <button class="button ghost" type="button" data-cancel-create-plan>Cancel</button>
         </form>
         <div class="form-errors" data-account-plan-errors></div>
         <div class="import-result" data-account-plan-result></div>
     </section>
 
     <div class="card-grid metric-grid account-plan-metrics">
-        <div class="metric-card"><span>Total Innovators</span><strong data-plan-metric="totalInnovators">0</strong></div>
-        <div class="metric-card"><span>Total Direct Customers</span><strong data-plan-metric="totalDirectCustomers">0</strong></div>
-        <div class="metric-card"><span>Innovator Plans in progress</span><strong data-plan-metric="innovatorPlansInProgress">0</strong></div>
-        <div class="metric-card"><span>Direct Customer Plans in progress</span><strong data-plan-metric="directCustomerPlansInProgress">0</strong></div>
-        <div class="metric-card"><span>Innovators live</span><strong data-plan-metric="innovatorsLive">0</strong></div>
-        <div class="metric-card"><span>Direct Customers live</span><strong data-plan-metric="directCustomersLive">0</strong></div>
-        <div class="metric-card"><span>Overdue plans</span><strong data-plan-metric="overduePlans">0</strong></div>
-        <div class="metric-card"><span>Plans at risk</span><strong data-plan-metric="plansAtRisk">0</strong></div>
+        <div class="metric-card"><span>Total Active Plans</span><strong data-plan-metric="totalActivePlans">0</strong></div>
+        <div class="metric-card"><span>Innovators</span><strong data-plan-metric="totalInnovators">0</strong></div>
+        <div class="metric-card"><span>Direct Customers</span><strong data-plan-metric="totalDirectCustomers">0</strong></div>
+        <div class="metric-card"><span>In Progress</span><strong data-plan-metric="inProgress">0</strong></div>
+        <div class="metric-card"><span>On Hold</span><strong data-plan-metric="onHold">0</strong></div>
+        <div class="metric-card"><span>Overdue</span><strong data-plan-metric="overduePlans">0</strong></div>
+        <div class="metric-card"><span>Live</span><strong data-plan-metric="live">0</strong></div>
+        <div class="metric-card"><span>Qualified Out</span><strong data-plan-metric="qualifiedOut">0</strong></div>
     </div>
 
-    <section class="panel">
+    <section class="panel" id="plans">
         <div class="panel-header">
             <div>
-                <h2>Account Plans</h2>
-                <p>Accounts are Innovators/partners or Direct Customers. Each plan is created from an editable lifecycle template.</p>
+                <h2>Active Plans</h2>
+                <p>Portfolio view of all Innovators and Direct Customers currently being worked.</p>
             </div>
-            <label class="compact-filter">
-                Filter accounts
-                <select data-account-type-filter>
+        </div>
+
+        <form class="filters portfolio-filters" data-account-plan-filters>
+            <label>
+                Type
+                <select name="accountType">
                     <option value="">All</option>
-                    <option value="Innovator">Innovators</option>
-                    <option value="Direct Customer">Direct Customers</option>
+                    <option value="Innovator">Innovator</option>
+                    <option value="Direct Customer">Direct Customer</option>
                 </select>
             </label>
-        </div>
+            <label>
+                Stage
+                <select name="stage" data-plan-stage-filter>
+                    <option value="">All stages</option>
+                </select>
+            </label>
+            <label>
+                Status / Health
+                <select name="status">
+                    <option value="">All</option>
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Live">Live</option>
+                    <option value="Qualified Out">Qualified Out</option>
+                </select>
+            </label>
+            <label>
+                Owner
+                <input name="owner" placeholder="Plan or next step owner">
+            </label>
+            <label>
+                Sort by
+                <select name="sort">
+                    <option value="nextDueDate">Next due date</option>
+                    <option value="daysOverdue">Days overdue</option>
+                    <option value="stage">Stage</option>
+                    <option value="owner">Owner</option>
+                    <option value="type">Type</option>
+                </select>
+            </label>
+            <label>
+                Live status
+                <select name="live">
+                    <option value="">All</option>
+                    <option value="live">Live</option>
+                    <option value="not-live">Not live</option>
+                </select>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="overdue" value="true">
+                Overdue only
+            </label>
+            <button class="button secondary" type="submit">Apply</button>
+            <button class="button ghost" type="button" data-reset-plan-filters>Reset</button>
+        </form>
+
         <div class="table-wrap">
-            <table class="data-table compact account-plan-table">
+            <table class="data-table active-plans-table">
                 <thead>
                     <tr>
-                        <th>Account</th>
+                        <th>Name</th>
                         <th>Type</th>
                         <th>Owner</th>
-                        <th>Template</th>
-                        <th>Kick-off</th>
-                        <th>Target go-live</th>
-                        <th>Progress</th>
-                        <th>Risk</th>
+                        <th>Current Stage</th>
+                        <th>Status / Health</th>
+                        <th>Next Step</th>
+                        <th>Next Step Owner</th>
+                        <th>Next Due Date</th>
+                        <th>Days Overdue</th>
+                        <th>Target Live Date</th>
+                        <th>Open Plan</th>
                     </tr>
                 </thead>
                 <tbody data-account-plan-table></tbody>
-            </table>
-        </div>
-    </section>
-    <div class="card-grid metric-grid">
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}">
-            <span>Legacy I20 lifecycle items</span>
-            <strong data-metric="totalI20">0</strong>
-        </a>
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='D20') }}">
-            <span>Legacy D20 lifecycle items</span>
-            <strong data-metric="totalD20">0</strong>
-        </a>
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?overdue=true">
-            <span>Overdue records</span>
-            <strong data-metric="overdue">0</strong>
-        </a>
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=Completed">
-            <span>Completed records</span>
-            <strong data-metric="completed">0</strong>
-        </a>
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=In%20Progress">
-            <span>In Progress</span>
-            <strong data-metric="inProgress">0</strong>
-        </a>
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=On%20Hold">
-            <span>On Hold</span>
-            <strong data-metric="onHold">0</strong>
-        </a>
-        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=Not%20Started">
-            <span>Not Started</span>
-            <strong data-metric="notStarted">0</strong>
-        </a>
-        <a class="metric-card" href="#due-this-week">
-            <span>Due this week</span>
-            <strong data-metric="dueThisWeek">0</strong>
-        </a>
-    </div>
-
-    <div class="two-column">
-        <section class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>Status summary</h2>
-                    <p>Controlled values replacing workbook validation lists.</p>
-                </div>
-            </div>
-            <div class="summary-list" data-dashboard-status></div>
-        </section>
-
-        <section class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>Stage breakdown</h2>
-                    <p>All configured lifecycle stages are represented.</p>
-                </div>
-            </div>
-            <div class="bar-chart" data-dashboard-stage></div>
-        </section>
-    </div>
-
-    <div class="two-column">
-        <section class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>Overdue records</h2>
-                    <p>Open items with due dates before today.</p>
-                </div>
-            </div>
-            <div class="table-wrap">
-                <table class="data-table compact">
-                    <thead>
-                        <tr>
-                            <th>Tracker</th>
-                            <th>Title</th>
-                            <th>Status</th>
-                            <th>Owner</th>
-                            <th>Due</th>
-                        </tr>
-                    </thead>
-                    <tbody data-dashboard-overdue></tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="panel" id="due-this-week">
-            <div class="panel-header">
-                <div>
-                    <h2>Due this week</h2>
-                    <p>Open items due in the next seven days.</p>
-                </div>
-            </div>
-            <div class="table-wrap">
-                <table class="data-table compact">
-                    <thead>
-                        <tr>
-                            <th>Tracker</th>
-                            <th>Title</th>
-                            <th>Status</th>
-                            <th>Owner</th>
-                            <th>Due</th>
-                        </tr>
-                    </thead>
-                    <tbody data-dashboard-due-week></tbody>
-                </table>
-            </div>
-        </section>
-    </div>
-
-    <section class="panel">
-        <div class="panel-header">
-            <div>
-                <h2>Recently updated records</h2>
-                <p>Latest lifecycle activity across I20 and D20 trackers.</p>
-            </div>
-        </div>
-        <div class="table-wrap">
-            <table class="data-table compact">
-                <thead>
-                    <tr>
-                        <th>Tracker</th>
-                        <th>Title</th>
-                        <th>Stage</th>
-                        <th>Status</th>
-                        <th>Owner</th>
-                        <th>Updated</th>
-                    </tr>
-                </thead>
-                <tbody data-dashboard-recent></tbody>
             </table>
         </div>
     </section>

@@ -10,30 +10,26 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-logo-card">
-                    <img src="{{ url_for('static', filename='cortave-logo.png') }}" alt="Cortave logo" class="brand-logo">
-                </div>
+                <div class="brand-mark">LT</div>
                 <div>
                     <strong>Lifecycle Tracker</strong>
-                    <span>Internal lifecycle app</span>
+                    <span>Account plan portfolio</span>
                 </div>
             </div>
             <nav class="nav">
-                <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Master Partner Dashboard</a>
-                <a href="{{ url_for('tracker_page', tracker_type='I20') }}" class="{{ 'active' if tracker_type|default('') == 'I20' else '' }}">Innovator Journey</a>
-                <a href="{{ url_for('tracker_page', tracker_type='D20') }}" class="{{ 'active' if tracker_type|default('') == 'D20' else '' }}">Direct Customer Journey</a>
-                <a href="{{ url_for('partners_page') }}" class="{{ 'active' if request.endpoint == 'partners_page' else '' }}">Partner Master Data</a>
+                <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Master Dashboard</a>
+                <a href="{{ url_for('dashboard') }}#plans">Plans</a>
                 {% if current_user.role == 'admin' %}
-                <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Data Validation / Settings</a>
+                <a href="{{ url_for('settings_page') }}#templates" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Templates</a>
+                <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Settings</a>
                 <a href="{{ url_for('import_export_page') }}" class="{{ 'active' if request.endpoint == 'import_export_page' else '' }}">Import / Export</a>
-                <a href="{{ url_for('admin_page') }}" class="{{ 'active' if request.endpoint == 'admin_page' else '' }}">Admin Settings</a>
+                <a href="{{ url_for('admin_page') }}" class="{{ 'active' if request.endpoint == 'admin_page' else '' }}">Admin</a>
                 {% endif %}
             </nav>
         </aside>
         <main class="main">
             <header class="topbar">
                 <div class="topbar-brand">
-                    <img src="{{ url_for('static', filename='cortave-logo.png') }}" alt="Cortave logo" class="topbar-logo">
                     <div>
                         <p class="eyebrow">Lifecycle Plan Management</p>
                         <h1>{{ page_title }}</h1>

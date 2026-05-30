@@ -62,9 +62,46 @@ function populateOptionSelects(root = document) {
 
 function initDashboard() {
     document.querySelector("[data-account-plan-form]")?.addEventListener("submit", createAccountPlan);
-    document.querySelector("[data-account-type-filter]")?.addEventListener("change", loadAccountPlans);
+    document.querySelectorAll("[data-create-plan-type]").forEach((button) => {
+        button.addEventListener("click", () => openCreatePlanPanel(button.dataset.createPlanType));
+    });
+    document.querySelector("[data-cancel-create-plan]")?.addEventListener("click", () => {
+        document.querySelector("[data-create-plan-panel]").hidden = true;
+    });
+    document.querySelector("[data-account-plan-filters]")?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        loadAccountPlans();
+    });
+    document.querySelector("[data-reset-plan-filters]")?.addEventListener("click", () => {
+        document.querySelector("[data-account-plan-filters]").reset();
+        loadAccountPlans();
+    });
+    populatePlanStageFilter();
     loadDashboard();
     loadAccountPlans();
+}
+
+function openCreatePlanPanel(accountType) {
+    const panel = document.querySelector("[data-create-plan-panel]");
+    const form = document.querySelector("[data-account-plan-form]");
+    form.reset();
+    form.elements.accountType.value = accountType;
+    panel.hidden = false;
+    document.querySelector("[data-create-plan-title]").textContent = accountType === "Innovator" ? "Create Innovator Plan" : "Create Direct Customer Plan";
+    document.querySelector("[data-account-name-label]").textContent = accountType === "Innovator" ? "Innovator name" : "Customer name";
+    form.elements.accountName.placeholder = accountType === "Innovator" ? "Innovator / partner name" : "Direct customer name";
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function populatePlanStageFilter() {
+    const select = document.querySelector("[data-plan-stage-filter]");
+    if (!select) return;
+    ["I0", "I20", "I50", "D0", "D20", "Live", "Qualified Out"].forEach((stage) => {
+        const option = document.createElement("option");
+        option.value = stage;
+        option.textContent = stage;
+        select.appendChild(option);
+    });
 }
 
 
@@ -74,6 +111,7 @@ async function initAccountPlanDetail() {
     if (!page) return;
     lifecycle.planId = page.dataset.planId;
     document.querySelector("[data-account-plan-detail-form]").addEventListener("submit", saveAccountPlanDetail);
+    document.querySelector("[data-add-lifecycle-item-form]")?.addEventListener("submit", addLifecycleItem);
     await loadAccountPlanDetail();
 }
 
@@ -88,7 +126,10 @@ async function loadAccountPlanDetail() {
     form.elements.planOwner.value = plan.planOwner || "";
     form.elements.kickOffDate.value = plan.kickOffDate || "";
     form.elements.targetGoLiveDate.value = plan.targetGoLiveDate || "";
+    form.elements.territory.value = plan.territory || "";
+    form.elements.currentStageOverride.value = plan.currentStageOverride || "";
     form.elements.notes.value = plan.notes || "";
+    renderPlanWorkspaceSummary(plan);
     renderLifecycleItems(plan.items || []);
 }
 
@@ -121,12 +162,15 @@ function renderLifecycleItems(items) {
             <td><input type="date" name="actualStartDate" value="${escapeHtml(item.actualStartDate)}"></td>
             <td>${item.targetDueDayOffset ?? ""}</td>
             <td><input type="date" name="dueDate" value="${escapeHtml(item.dueDate)}"></td>
+            <td><input type="date" name="completedDate" value="${escapeHtml(item.completedDate)}"></td>
             <td><input name="cortaveOwner" value="${escapeHtml(item.cortaveOwner)}"></td>
             <td><input name="accountOwner" value="${escapeHtml(item.accountOwner)}"></td>
+            <td><input name="nextAction" value="${escapeHtml(item.nextAction)}"></td>
+            <td><input name="link" value="${escapeHtml(item.link)}"></td>
             <td><textarea name="notes" rows="2">${escapeHtml(item.notes)}</textarea></td>
-            <td><button class="button secondary small" data-save-lifecycle-item="${item.id}">Save</button></td>
+            <td><button class="button secondary small" data-save-lifecycle-item="${item.id}">Save</button><button class="button danger small" data-delete-lifecycle-item="${item.id}">Delete</button></td>
         </tr>
-    `).join("") || `<tr><td colspan="13">No Lifecycle Items found for this Account Plan.</td></tr>`;
+    `).join("") || `<tr><td colspan="16">No Lifecycle Items found for this Account Plan.</td></tr>`;
     target.querySelectorAll("select[name='status']").forEach((select) => {
         (lifecycle.options.status || []).forEach((status) => {
             const option = document.createElement("option");
@@ -148,7 +192,7 @@ function renderLifecycleItems(items) {
             try {
                 await api(`/api/lifecycle-items/${button.dataset.saveLifecycleItem}`, { method: "PUT", body: JSON.stringify(payload) });
                 button.textContent = "Saved";
-                setTimeout(() => { button.textContent = "Save"; button.disabled = false; }, 900);
+                await loadAccountPlanDetail();
             } catch (error) {
                 alert(error.message);
                 button.textContent = "Save";
@@ -156,6 +200,36 @@ function renderLifecycleItems(items) {
             }
         });
     });
+    target.querySelectorAll("[data-delete-lifecycle-item]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            if (!confirm("Delete this Lifecycle Item?")) return;
+            await api(`/api/lifecycle-items/${button.dataset.deleteLifecycleItem}`, { method: "DELETE" });
+            await loadAccountPlanDetail();
+        });
+    });
+}
+
+
+function renderPlanWorkspaceSummary(plan) {
+    const target = document.querySelector("[data-plan-workspace-summary]");
+    if (!target) return;
+    target.innerHTML = `
+        <div class="metric-card"><span>Current Stage</span><strong>${escapeHtml(plan.currentStage || "-")}</strong></div>
+        <div class="metric-card"><span>Health</span><strong>${escapeHtml(plan.healthStatus || "-")}</strong></div>
+        <div class="metric-card"><span>Completed</span><strong>${plan.completedItems}/${plan.totalItems}</strong></div>
+        <div class="metric-card"><span>Open Items</span><strong>${Math.max((plan.totalItems || 0) - (plan.completedItems || 0), 0)}</strong></div>
+        <div class="metric-card"><span>Overdue Items</span><strong>${plan.overdueItems || 0}</strong></div>
+        <div class="metric-card"><span>Next Step</span><strong>${escapeHtml(plan.nextStep || "-")}</strong></div>
+    `;
+}
+
+async function addLifecycleItem(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const payload = Object.fromEntries(new FormData(form).entries());
+    await api(`/api/account-plans/${lifecycle.planId}/items`, { method: "POST", body: JSON.stringify(payload) });
+    form.reset();
+    await loadAccountPlanDetail();
 }
 
 async function createAccountPlan(event) {
@@ -193,27 +267,34 @@ async function createAccountPlan(event) {
 async function loadAccountPlans() {
     const table = document.querySelector("[data-account-plan-table]");
     if (!table) return;
-    const accountType = document.querySelector("[data-account-type-filter]")?.value || "";
     const params = new URLSearchParams();
-    if (accountType) params.set("accountType", accountType);
+    const filterForm = document.querySelector("[data-account-plan-filters]");
+    if (filterForm) {
+        new FormData(filterForm).forEach((value, key) => {
+            if (value) params.set(key, value);
+        });
+    }
     const data = await api(`/api/account-plans?${params.toString()}`);
     renderAccountPlanMetrics(data.summary || {});
     table.innerHTML = data.plans.length ? data.plans.map((plan) => `
-        <tr class="${plan.isAtRisk ? "overdue" : ""}">
-            <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a><br><a class="button ghost small" href="${plan.accountType === "Innovator" ? "/trackers/I20" : "/trackers/D20"}?planId=${plan.id}">Open Journey</a><br><span class="muted">${escapeHtml(plan.notes || "")}</span></td>
+        <tr>
+            <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a></td>
             <td>${accountTypeBadge(plan.accountType)}</td>
             <td>${escapeHtml(plan.planOwner)}</td>
-            <td>${escapeHtml(plan.templateName)}</td>
-            <td>${escapeHtml(plan.kickOffDate)}</td>
+            <td>${escapeHtml(plan.currentStage || "-")}</td>
+            <td>${healthBadge(plan.healthStatus)}</td>
+            <td>${escapeHtml(plan.nextStep || "-")}</td>
+            <td>${escapeHtml(plan.nextStepOwner || "-")}</td>
+            <td>${escapeHtml(plan.nextDueDate || "-")}</td>
+            <td>${plan.daysOverdue || 0}</td>
             <td>${escapeHtml(plan.targetGoLiveDate || "-")}</td>
-            <td>${plan.completedItems}/${plan.totalItems} completed</td>
-            <td>${plan.isAtRisk ? `<strong>${plan.overdueItems} overdue / ${plan.onHoldItems} on hold</strong>` : "On track"}</td>
+            <td><a class="button secondary small" href="/account-plans/${plan.id}">Open Plan</a></td>
         </tr>
-    `).join("") : `<tr><td colspan="8">No Account Plans yet. Create an Innovator or Direct Customer plan above.</td></tr>`;
+    `).join("") : `<tr><td colspan="11">No plans match the current filters. Create an Innovator or Direct Customer plan above.</td></tr>`;
 }
 
 function renderAccountPlanMetrics(summary) {
-    ["totalInnovators", "totalDirectCustomers", "innovatorPlansInProgress", "directCustomerPlansInProgress", "innovatorsLive", "directCustomersLive", "overduePlans", "plansAtRisk"].forEach((key) => {
+    ["totalActivePlans", "totalInnovators", "totalDirectCustomers", "inProgress", "onHold", "overduePlans", "live", "qualifiedOut"].forEach((key) => {
         const element = document.querySelector(`[data-plan-metric="${key}"]`);
         if (element) element.textContent = summary[key] || 0;
     });
@@ -222,6 +303,11 @@ function renderAccountPlanMetrics(summary) {
 function accountTypeBadge(accountType) {
     const label = accountType === "Innovator" ? "Innovator / Partner" : accountType;
     return `<span class="badge stage-badge">${escapeHtml(label)}</span>`;
+}
+
+function healthBadge(status) {
+    const cls = status === "Live" ? "badge-status-completed" : status === "On Hold" ? "badge-status-on-hold" : status === "Overdue" ? "badge-status-not-started" : "badge-status-in-progress";
+    return `<span class="badge ${cls}">${escapeHtml(status || "Not Started")}</span>`;
 }
 
 async function loadDashboard() {
