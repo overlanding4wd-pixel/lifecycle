@@ -156,7 +156,7 @@ function renderLifecycleItems(items) {
             <td>${item.sortOrder}</td>
             <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
             <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
-            <td><div class="status-edit"><span class="badge ${getStatusBadgeClass(item.status)}" data-status-preview>${escapeHtml(item.status)}</span><select name="status" data-status-value="${escapeHtml(item.status)}"></select></div></td>
+            <td><div class="status-edit"><button class="badge ${getStatusBadgeClass(item.status)}" type="button" data-status-preview>${escapeHtml(item.status)}</button><select name="status" data-status-value="${escapeHtml(item.status)}" hidden></select></div></td>
             <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
             <td>${item.startDayOffset ?? ""}</td>
             <td><input type="date" name="actualStartDate" value="${escapeHtml(item.actualStartDate)}"></td>
@@ -188,6 +188,17 @@ function renderLifecycleItems(items) {
             }
             const button = row?.querySelector("[data-save-lifecycle-item], [data-save-plan-item]");
             if (row && button) await saveLifecycleItemRow(row, button);
+            select.hidden = true;
+            if (preview) preview.hidden = false;
+        });
+    });
+    target.querySelectorAll("[data-status-preview]").forEach((badge) => {
+        badge.addEventListener("click", () => {
+            const wrapper = badge.closest(".status-edit");
+            const select = wrapper.querySelector("select[name='status']");
+            badge.hidden = true;
+            select.hidden = false;
+            select.focus();
         });
     });
     target.querySelectorAll("[data-save-lifecycle-item]").forEach((button) => {
@@ -240,9 +251,10 @@ function renderPlanWorkspaceSummary(plan) {
     if (!target) return;
     target.innerHTML = `
         <div class="metric-card"><span>Current Stage</span><strong>${escapeHtml(plan.currentStage || "-")}</strong></div>
-        <div class="metric-card"><span>Health</span><strong>${escapeHtml(plan.healthStatus || "-")}</strong></div>
+        <div class="metric-card"><span>Plan Status</span><strong>${escapeHtml(plan.planStatus || "-")}</strong></div>
+        <div class="metric-card"><span>Plan Health</span><strong>${healthBadge(plan.healthStatus || "On Track")}</strong></div>
         <div class="metric-card"><span>Completed</span><strong>${plan.completedItems}/${plan.totalItems}</strong></div>
-        <div class="metric-card"><span>Open Items</span><strong>${Math.max((plan.totalItems || 0) - (plan.completedItems || 0), 0)}</strong></div>
+        <div class="metric-card"><span>Open Items</span><strong>${plan.openItems ?? Math.max((plan.totalItems || 0) - (plan.completedItems || 0), 0)}</strong></div>
         <div class="metric-card"><span>Overdue Items</span><strong>${plan.overdueItems || 0}</strong></div>
         <div class="metric-card"><span>Next Step</span><strong>${escapeHtml(plan.nextStep || "-")}</strong></div>
     `;
@@ -307,7 +319,7 @@ async function loadAccountPlans() {
             <td>${accountTypeBadge(plan.accountType)}</td>
             <td>${escapeHtml(plan.planOwner)}</td>
             <td>${escapeHtml(plan.currentStage || "-")}</td>
-            <td>${healthBadge(plan.healthStatus)}</td>
+            <td>${statusBadge(plan.planStatus)}<br>${healthBadge(plan.healthStatus)}</td>
             <td>${escapeHtml(plan.nextStep || "-")}</td>
             <td>${escapeHtml(plan.nextStepOwner || "-")}</td>
             <td>${escapeHtml(plan.nextDueDate || "-")}</td>
@@ -538,7 +550,7 @@ function renderLifecycleItemTrackerTable() {
         row.innerHTML = `
             <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
             <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
-            <td><div class="status-edit"><span class="badge ${getStatusBadgeClass(item.status)}" data-status-preview>${escapeHtml(item.status)}</span><select name="status" data-status-value="${escapeHtml(item.status)}"></select></div></td>
+            <td><div class="status-edit"><button class="badge ${getStatusBadgeClass(item.status)}" type="button" data-status-preview>${escapeHtml(item.status)}</button><select name="status" data-status-value="${escapeHtml(item.status)}" hidden></select></div></td>
             <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
             <td><input name="cortaveOwner" value="${escapeHtml(item.cortaveOwner)}"></td>
             <td><input name="accountOwner" value="${escapeHtml(item.accountOwner)}"></td>
@@ -566,6 +578,15 @@ function renderLifecycleItemTrackerTable() {
             });
         });
         target.appendChild(row);
+    });
+    target.querySelectorAll("[data-status-preview]").forEach((badge) => {
+        badge.addEventListener("click", () => {
+            const wrapper = badge.closest(".status-edit");
+            const select = wrapper.querySelector("select[name='status']");
+            badge.hidden = true;
+            select.hidden = false;
+            select.focus();
+        });
     });
     target.querySelectorAll("[data-save-plan-item]").forEach((button) => {
         button.addEventListener("click", async () => {
@@ -1205,10 +1226,10 @@ function statusBadge(status) {
 
 function getStatusBadgeClass(status) {
     const normalized = String(status || "Not Started").toLowerCase();
-    if (normalized === "completed" || normalized === "live") return "badge-status-completed";
-    if (normalized === "in progress") return "badge-status-in-progress";
-    if (normalized === "on hold") return "badge-status-on-hold";
-    if (normalized === "overdue" || normalized === "qualified out") return "badge-status-not-started";
+    if (["completed", "live", "complete", "on track"].includes(normalized)) return "badge-status-completed";
+    if (["in progress", "at risk"].includes(normalized)) return "badge-status-in-progress";
+    if (["on hold", "blocked"].includes(normalized)) return "badge-status-on-hold";
+    if (["overdue", "off track", "qualified out"].includes(normalized)) return "badge-status-off-track";
     return "badge-status-not-started";
 }
 

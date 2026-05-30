@@ -890,8 +890,19 @@ textarea {
 }
 
 .status-edit {
-    align-items: center;
+    align-items: start;
     display: grid;
     gap: 6px;
-    min-width: 150px;
+    min-width: 130px;
+}
+
+.status-edit .badge {
+    border: 0;
+    cursor: pointer;
+    width: max-content;
+}
+
+.badge-status-off-track {
+    background: #fee2e2;
+    color: #991b1b;
 }
