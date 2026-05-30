@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section data-page="import-export">
+    <div class="two-column">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Import records</h2>
+                    <p>Upload CSV or Excel files from the workbook and map known columns to lifecycle fields.</p>
+                </div>
+            </div>
+            <form class="record-form" data-import-form>
+                <label>
+                    Import target
+                    <select name="trackerType" required>
+                        <option value="I20">I20 Tracker</option>
+                        <option value="D20">D20 Tracker</option>
+                    </select>
+                </label>
+                <label>
+                    CSV or Excel file
+                    <input type="file" name="file" accept=".csv,.xlsx" required>
+                </label>
+                <button class="button primary" type="submit">Import records</button>
+            </form>
+            <div class="import-result" data-import-result></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Export records</h2>
+                    <p>Export current tracker data for reporting, handoffs, or offline review.</p>
+                </div>
+            </div>
+            <form class="record-form" data-export-form>
+                <label>
+                    Tracker
+                    <select name="trackerType">
+                        <option value="">All records</option>
+                        <option value="I20">I20 Tracker</option>
+                        <option value="D20">D20 Tracker</option>
+                    </select>
+                </label>
+                <label>
+                    Status
+                    <select name="status" data-options="status">
+                        <option value="">All statuses</option>
+                    </select>
+                </label>
+                <label>
+                    Stage
+                    <select name="stage" data-options="stage">
+                        <option value="">All stages</option>
+                    </select>
+                </label>
+                <div class="drawer-actions">
+                    <button class="button secondary" type="button" data-download-export="csv">Download CSV</button>
+                    <button class="button secondary" type="button" data-download-export="xlsx">Download Excel</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}

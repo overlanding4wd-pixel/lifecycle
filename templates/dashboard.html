@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="dashboard" data-page="dashboard">
+    <div class="card-grid metric-grid">
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}">
+            <span>Total I20 records</span>
+            <strong data-metric="totalI20">0</strong>
+        </a>
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='D20') }}">
+            <span>Total D20 records</span>
+            <strong data-metric="totalD20">0</strong>
+        </a>
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?overdue=true">
+            <span>Overdue records</span>
+            <strong data-metric="overdue">0</strong>
+        </a>
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=Completed">
+            <span>Completed records</span>
+            <strong data-metric="completed">0</strong>
+        </a>
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=In%20Progress">
+            <span>In Progress</span>
+            <strong data-metric="inProgress">0</strong>
+        </a>
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=On%20Hold">
+            <span>On Hold</span>
+            <strong data-metric="onHold">0</strong>
+        </a>
+        <a class="metric-card" href="{{ url_for('tracker_page', tracker_type='I20') }}?status=Not%20Started">
+            <span>Not Started</span>
+            <strong data-metric="notStarted">0</strong>
+        </a>
+        <a class="metric-card" href="#due-this-week">
+            <span>Due this week</span>
+            <strong data-metric="dueThisWeek">0</strong>
+        </a>
+    </div>
+
+    <div class="two-column">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Status summary</h2>
+                    <p>Controlled values replacing workbook validation lists.</p>
+                </div>
+            </div>
+            <div class="summary-list" data-dashboard-status></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Stage breakdown</h2>
+                    <p>All configured lifecycle stages are represented.</p>
+                </div>
+            </div>
+            <div class="bar-chart" data-dashboard-stage></div>
+        </section>
+    </div>
+
+    <div class="two-column">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Overdue records</h2>
+                    <p>Open items with due dates before today.</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            <th>Tracker</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Owner</th>
+                            <th>Due</th>
+                        </tr>
+                    </thead>
+                    <tbody data-dashboard-overdue></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel" id="due-this-week">
+            <div class="panel-header">
+                <div>
+                    <h2>Due this week</h2>
+                    <p>Open items due in the next seven days.</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            <th>Tracker</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Owner</th>
+                            <th>Due</th>
+                        </tr>
+                    </thead>
+                    <tbody data-dashboard-due-week></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Recently updated records</h2>
+                <p>Latest lifecycle activity across I20 and D20 trackers.</p>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        <th>Tracker</th>
+                        <th>Title</th>
+                        <th>Stage</th>
+                        <th>Status</th>
+                        <th>Owner</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody data-dashboard-recent></tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}

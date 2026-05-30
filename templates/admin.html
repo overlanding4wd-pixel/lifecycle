@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section data-page="admin">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Admin settings</h2>
+                <p>Role controls for the MVP. Connect these roles to your identity provider for production use.</p>
+            </div>
+        </div>
+        <div class="role-grid">
+            <article class="role-card">
+                <h3>Admin</h3>
+                <p>Can manage settings, import and export data, add/edit records, and delete records.</p>
+            </article>
+            <article class="role-card">
+                <h3>Editor</h3>
+                <p>Can add, edit, search, filter, and export tracker records.</p>
+            </article>
+            <article class="role-card">
+                <h3>Viewer</h3>
+                <p>Can view dashboards, search, filter, and export records only.</p>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

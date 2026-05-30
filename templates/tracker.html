@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="tracker-page" data-page="tracker" data-tracker-type="{{ tracker_type }}">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>{{ tracker_type }} Tracker records</h2>
+                <p>Search, filter, edit, and export lifecycle records without spreadsheet maintenance.</p>
+            </div>
+            <div class="actions">
+                <button class="button secondary" data-export="csv">Export CSV</button>
+                <button class="button secondary" data-export="xlsx">Export Excel</button>
+                {% if current_user.role in ['admin', 'editor'] %}
+                <button class="button primary" data-open-new-record>Add record</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <form class="filters" data-record-filters>
+            <label>
+                Search
+                <input type="search" name="search" placeholder="Title, customer, owner, notes">
+            </label>
+            <label>
+                Status
+                <select name="status" data-options="status">
+                    <option value="">All statuses</option>
+                </select>
+            </label>
+            <label>
+                Stage
+                <select name="stage" data-options="stage">
+                    <option value="">All stages</option>
+                </select>
+            </label>
+            <label>
+                Owner
+                <select name="owner" data-options="owner">
+                    <option value="">All owners</option>
+                </select>
+            </label>
+            <label>
+                Due after
+                <input type="date" name="dueAfter">
+            </label>
+            <label>
+                Due before
+                <input type="date" name="dueBefore">
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="overdue" value="true">
+                Overdue only
+            </label>
+            <button class="button secondary" type="submit">Apply filters</button>
+            <button class="button ghost" type="button" data-reset-filters>Reset</button>
+        </form>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th><button data-sort="title">Title</button></th>
+                        <th><button data-sort="stage">Stage</button></th>
+                        <th><button data-sort="status">Status</button></th>
+                        <th><button data-sort="owner">Owner</button></th>
+                        <th>Customer</th>
+                        <th><button data-sort="priority">Priority</button></th>
+                        <th><button data-sort="dueDate">Due date</button></th>
+                        <th>Next action</th>
+                        <th><button data-sort="updatedAt">Updated</button></th>
+                        <th class="right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody data-record-table></tbody>
+            </table>
+        </div>
+        <p class="empty-state" data-empty-records hidden>No records match the current filters.</p>
+    </div>
+
+    <aside class="drawer" data-record-drawer aria-hidden="true">
+        <div class="drawer-backdrop" data-close-drawer></div>
+        <div class="drawer-panel">
+            <div class="drawer-header">
+                <div>
+                    <p class="eyebrow">{{ tracker_type }} Tracker</p>
+                    <h2 data-drawer-title>Record detail</h2>
+                </div>
+                <button class="icon-button" data-close-drawer aria-label="Close">×</button>
+            </div>
+            <form class="record-form" data-record-form>
+                <input type="hidden" name="id">
+                <input type="hidden" name="trackerType" value="{{ tracker_type }}">
+                <label>
+                    Title / opportunity name *
+                    <input name="title" required>
+                </label>
+                <div class="form-grid">
+                    <label>
+                        Stage *
+                        <select name="stage" data-options="stage" required></select>
+                    </label>
+                    <label>
+                        Status *
+                        <select name="status" data-options="status" required></select>
+                    </label>
+                </div>
+                <div class="form-grid">
+                    <label>
+                        Owner *
+                        <select name="owner" data-options="owner" required></select>
+                    </label>
+                    <label>
+                        Priority
+                        <select name="priority" data-options="priority"></select>
+                    </label>
+                </div>
+                <label>
+                    Customer / account name
+                    <input name="customer">
+                </label>
+                <label>
+                    Description
+                    <textarea name="description" rows="3"></textarea>
+                </label>
+                <label>
+                    Notes
+                    <textarea name="notes" rows="4"></textarea>
+                </label>
+                <div class="form-grid">
+                    <label>
+                        Start date
+                        <input type="date" name="startDate">
+                    </label>
+                    <label>
+                        Due date
+                        <input type="date" name="dueDate">
+                    </label>
+                    <label>
+                        Completed date
+                        <input type="date" name="completedDate">
+                    </label>
+                </div>
+                <label>
+                    Next action
+                    <input name="nextAction">
+                </label>
+                <label>
+                    Additional imported fields (JSON)
+                    <textarea name="additionalFields" rows="3" placeholder='{"Workbook Column": "Value"}'></textarea>
+                </label>
+                <div class="form-errors" data-form-errors></div>
+                <div class="drawer-actions">
+                    <button class="button primary" type="submit">Save record</button>
+                    <button class="button ghost" type="button" data-close-drawer>Cancel</button>
+                    {% if current_user.role == 'admin' %}
+                    <button class="button danger" type="button" data-delete-record hidden>Delete</button>
+                    {% endif %}
+                </div>
+            </form>
+            <section class="history">
+                <h3>Change history</h3>
+                <div data-record-history class="history-list"></div>
+            </section>
+        </div>
+    </aside>
+</section>
+{% endblock %}
