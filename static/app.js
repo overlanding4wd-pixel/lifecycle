@@ -65,8 +65,8 @@ function initDashboard() {
     document.querySelectorAll("[data-create-plan-type]").forEach((button) => {
         button.addEventListener("click", () => openCreatePlanPanel(button.dataset.createPlanType));
     });
-    document.querySelector("[data-cancel-create-plan]")?.addEventListener("click", () => {
-        document.querySelector("[data-create-plan-panel]").hidden = true;
+    document.querySelectorAll("[data-cancel-create-plan]").forEach((button) => {
+        button.addEventListener("click", closeCreatePlanPanel);
     });
     document.querySelector("[data-account-plan-filters]")?.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -87,10 +87,19 @@ function openCreatePlanPanel(accountType) {
     form.reset();
     form.elements.accountType.value = accountType;
     panel.hidden = false;
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
     document.querySelector("[data-create-plan-title]").textContent = accountType === "Innovator" ? "Create Innovator Plan" : "Create Direct Customer Plan";
     document.querySelector("[data-account-name-label]").textContent = accountType === "Innovator" ? "Innovator name" : "Customer name";
     form.elements.accountName.placeholder = accountType === "Innovator" ? "Innovator / partner name" : "Direct customer name";
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    form.elements.accountName.focus();
+}
+
+function closeCreatePlanPanel() {
+    const panel = document.querySelector("[data-create-plan-panel]");
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    panel.hidden = true;
 }
 
 function populatePlanStageFilter() {
@@ -285,6 +294,7 @@ async function createAccountPlan(event) {
         }
         const response = await api("/api/account-plans", { method: "POST", body: JSON.stringify(payload) });
         form.reset();
+        closeCreatePlanPanel();
         await loadAccountPlans();
         await loadDashboard();
         if (result) {
@@ -313,25 +323,55 @@ async function loadAccountPlans() {
     }
     const data = await api(`/api/account-plans?${params.toString()}`);
     renderAccountPlanMetrics(data.summary || {});
+    renderPlansNeedingAttention(data.plans || []);
     table.innerHTML = data.plans.length ? data.plans.map((plan) => `
         <tr>
             <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a></td>
             <td>${accountTypeBadge(plan.accountType)}</td>
             <td>${escapeHtml(plan.planOwner)}</td>
-            <td>${escapeHtml(plan.currentStage || "-")}</td>
-            <td>${statusBadge(plan.planStatus)}<br>${healthBadge(plan.healthStatus)}</td>
+            <td><span class="badge stage-badge">${escapeHtml(plan.currentStage || "-")}</span></td>
+            <td>${statusBadge(plan.planStatus)}</td>
+            <td>${healthBadge(plan.healthStatus)}</td>
             <td>${escapeHtml(plan.nextStep || "-")}</td>
             <td>${escapeHtml(plan.nextStepOwner || "-")}</td>
             <td>${escapeHtml(plan.nextDueDate || "-")}</td>
             <td>${plan.daysOverdue || 0}</td>
             <td>${escapeHtml(plan.targetGoLiveDate || "-")}</td>
+            <td>${formatDateTime(plan.updatedAt)}</td>
             <td><a class="button secondary small" href="/account-plans/${plan.id}">Open Plan</a></td>
         </tr>
-    `).join("") : `<tr><td colspan="11">No plans match the current filters. Create an Innovator or Direct Customer plan above.</td></tr>`;
+    `).join("") : emptyPlansRow();
 }
 
+function emptyPlansRow() {
+    return `<tr><td colspan="13"><div class="empty-dashboard-state"><p>No plans created yet. Create your first Innovator Plan or Direct Customer Plan to start tracking lifecycle progress.</p><button class="button primary" data-empty-create="Innovator">Create Innovator Plan</button><button class="button secondary" data-empty-create="Direct Customer">Create Direct Customer Plan</button></div></td></tr>`;
+}
+
+function renderPlansNeedingAttention(plans) {
+    const target = document.querySelector("[data-attention-plans]");
+    if (!target) return;
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 14);
+    const attention = plans.filter((plan) => {
+        const targetLive = plan.targetGoLiveDate ? new Date(`${plan.targetGoLiveDate}T00:00:00`) : null;
+        return plan.daysOverdue > 0 || plan.planStatus === "On Hold" || plan.healthStatus === "Blocked" || !plan.nextStepOwner || (targetLive && targetLive <= soon && !plan.isLive);
+    }).slice(0, 8);
+    target.innerHTML = attention.length ? attention.map((plan) => `
+        <a class="attention-card" href="/account-plans/${plan.id}">
+            <strong>${escapeHtml(plan.accountName)}</strong>
+            <span>${accountTypeBadge(plan.accountType)} ${healthBadge(plan.healthStatus)}</span>
+            <small>${escapeHtml(plan.nextStep || "No next step")} · ${escapeHtml(plan.nextStepOwner || "Missing owner")}</small>
+        </a>
+    `).join("") : `<p class="empty-state">No plans need attention right now.</p>`;
+}
+
+document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-empty-create]");
+    if (button) openCreatePlanPanel(button.dataset.emptyCreate);
+});
+
 function renderAccountPlanMetrics(summary) {
-    ["totalActivePlans", "totalInnovators", "totalDirectCustomers", "inProgress", "onHold", "overduePlans", "live", "qualifiedOut"].forEach((key) => {
+    ["totalActivePlans", "totalInnovators", "totalDirectCustomers", "nextActionsDue", "overduePlans", "live", "qualifiedOut", "onHold"].forEach((key) => {
         const element = document.querySelector(`[data-plan-metric="${key}"]`);
         if (element) element.textContent = summary[key] || 0;
     });

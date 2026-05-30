@@ -4,8 +4,8 @@
 <section class="dashboard" data-page="dashboard">
     <section class="dashboard-hero panel">
         <div>
-            <p class="eyebrow">Portfolio lifecycle tracking</p>
-            <h2>Master Dashboard</h2>
+            <p class="eyebrow">Lifecycle Tracker</p>
+            <h2>Partner & Customer Activation Portfolio</h2>
             <p>Track Innovator / Partner Plans and Direct Customer Plans from first engagement through live or qualified out.</p>
         </div>
         <div class="actions">
@@ -14,7 +14,9 @@
         </div>
     </section>
 
-    <section class="panel account-plan-create-panel" data-create-plan-panel hidden>
+    <aside class="drawer" data-create-plan-panel aria-hidden="true">
+        <div class="drawer-backdrop" data-cancel-create-plan></div>
+        <div class="drawer-panel narrow">
         <div class="panel-header">
             <div>
                 <h2 data-create-plan-title>Create Account Plan</h2>
@@ -52,18 +54,30 @@
         </form>
         <div class="form-errors" data-account-plan-errors></div>
         <div class="import-result" data-account-plan-result></div>
-    </section>
+        </div>
+    </aside>
 
     <div class="card-grid metric-grid account-plan-metrics">
         <div class="metric-card"><span>Total Active Plans</span><strong data-plan-metric="totalActivePlans">0</strong></div>
         <div class="metric-card"><span>Innovators</span><strong data-plan-metric="totalInnovators">0</strong></div>
         <div class="metric-card"><span>Direct Customers</span><strong data-plan-metric="totalDirectCustomers">0</strong></div>
-        <div class="metric-card"><span>In Progress</span><strong data-plan-metric="inProgress">0</strong></div>
-        <div class="metric-card"><span>On Hold</span><strong data-plan-metric="onHold">0</strong></div>
+        <div class="metric-card"><span>Next Actions Due</span><strong data-plan-metric="nextActionsDue">0</strong></div>
         <div class="metric-card"><span>Overdue</span><strong data-plan-metric="overduePlans">0</strong></div>
         <div class="metric-card"><span>Live</span><strong data-plan-metric="live">0</strong></div>
         <div class="metric-card"><span>Qualified Out</span><strong data-plan-metric="qualifiedOut">0</strong></div>
+        <div class="metric-card"><span>On Hold</span><strong data-plan-metric="onHold">0</strong></div>
     </div>
+
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Plans Needing Attention</h2>
+                <p>Overdue, on hold, blocked, missing next step owner, or target live date within 14 days.</p>
+            </div>
+        </div>
+        <div class="attention-list" data-attention-plans></div>
+    </section>
 
     <section class="panel" id="plans">
         <div class="panel-header">
@@ -74,58 +88,14 @@
         </div>
 
         <form class="filters portfolio-filters" data-account-plan-filters>
-            <label>
-                Type
-                <select name="accountType">
-                    <option value="">All</option>
-                    <option value="Innovator">Innovator</option>
-                    <option value="Direct Customer">Direct Customer</option>
-                </select>
-            </label>
-            <label>
-                Stage
-                <select name="stage" data-plan-stage-filter>
-                    <option value="">All stages</option>
-                </select>
-            </label>
-            <label>
-                Status / Health
-                <select name="status">
-                    <option value="">All</option>
-                    <option value="Not Started">Not Started</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="On Hold">On Hold</option>
-                    <option value="Overdue">Overdue</option>
-                    <option value="Live">Live</option>
-                    <option value="Qualified Out">Qualified Out</option>
-                </select>
-            </label>
-            <label>
-                Owner
-                <input name="owner" placeholder="Plan or next step owner">
-            </label>
-            <label>
-                Sort by
-                <select name="sort">
-                    <option value="nextDueDate">Next due date</option>
-                    <option value="daysOverdue">Days overdue</option>
-                    <option value="stage">Stage</option>
-                    <option value="owner">Owner</option>
-                    <option value="type">Type</option>
-                </select>
-            </label>
-            <label>
-                Live status
-                <select name="live">
-                    <option value="">All</option>
-                    <option value="live">Live</option>
-                    <option value="not-live">Not live</option>
-                </select>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" name="overdue" value="true">
-                Overdue only
-            </label>
+            <label>Search<input name="search" placeholder="Name, owner, next step"></label>
+            <label>Type<select name="accountType"><option value="">All</option><option value="Innovator">Innovator</option><option value="Direct Customer">Direct Customer</option></select></label>
+            <label>Stage<select name="stage" data-plan-stage-filter><option value="">All stages</option></select></label>
+            <label>Status<select name="status"><option value="">All</option><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option><option value="Live">Live</option><option value="Qualified Out">Qualified Out</option></select></label>
+            <label>Health<select name="health"><option value="">All</option><option value="On Track">On Track</option><option value="At Risk">At Risk</option><option value="Off Track">Off Track</option><option value="Blocked">Blocked</option><option value="Complete">Complete</option></select></label>
+            <label>Owner<input name="owner" placeholder="Owner"></label>
+            <label class="checkbox-label"><input type="checkbox" name="overdue" value="true">Overdue only</label>
+            <label>Sort by<select name="sort"><option value="nextDueDate">Next due date</option><option value="daysOverdue">Days overdue</option><option value="stage">Stage</option><option value="owner">Owner</option><option value="type">Type</option></select></label>
             <button class="button secondary" type="submit">Apply</button>
             <button class="button ghost" type="button" data-reset-plan-filters>Reset</button>
         </form>
@@ -138,12 +108,14 @@
                         <th>Type</th>
                         <th>Owner</th>
                         <th>Current Stage</th>
-                        <th>Status / Health</th>
+                        <th>Status</th>
+                        <th>Health</th>
                         <th>Next Step</th>
                         <th>Next Step Owner</th>
                         <th>Next Due Date</th>
                         <th>Days Overdue</th>
                         <th>Target Live Date</th>
+                        <th>Last Updated</th>
                         <th>Open Plan</th>
                     </tr>
                 </thead>

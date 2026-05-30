@@ -216,12 +216,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-health-status-ui",
+            "asset_version": "20260530-dashboard-ui-refine",
         }
 
     @app.route("/")
     def dashboard() -> str:
-        return render_template("dashboard.html", page_title="Master Partner Dashboard")
+        return render_template("dashboard.html", page_title="Master Dashboard")
 
     @app.route("/trackers/<tracker_type>")
     def tracker_page(tracker_type: str) -> str:
@@ -2129,8 +2129,10 @@ def add_days(start: date, offset: Any) -> str:
 def parse_account_plan_filters(args: Any) -> dict[str, Any]:
     return {
         "account_type": clean_text(args.get("accountType") or args.get("account_type")),
+        "search": clean_text(args.get("search")),
         "stage": clean_text(args.get("stage")),
         "status": clean_text(args.get("status")),
+        "health": clean_text(args.get("health")),
         "owner": clean_text(args.get("owner")),
         "overdue": clean_text(args.get("overdue")).lower() in {"true", "1", "yes"},
         "live": clean_text(args.get("live")),
@@ -2141,7 +2143,7 @@ def parse_account_plan_filters(args: Any) -> dict[str, Any]:
 
 def query_account_plans(database_path: str, filters: Any = "") -> list[dict[str, Any]]:
     if isinstance(filters, str):
-        filters = {"account_type": filters, "stage": "", "status": "", "owner": "", "overdue": False, "live": "", "sort": "nextDueDate", "direction": "ASC"}
+        filters = {"account_type": filters, "search": "", "stage": "", "status": "", "health": "", "owner": "", "overdue": False, "live": "", "sort": "nextDueDate", "direction": "ASC"}
     db = get_db(database_path)
     rows = db.execute(
         """
@@ -2246,11 +2248,15 @@ def lifecycle_item_to_dict(row: sqlite3.Row) -> dict[str, Any]:
 def filter_account_plans(plans: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
     filtered = []
     for plan in plans:
+        if filters.get("search") and filters["search"].lower() not in f"{plan['accountName']} {plan['planOwner']} {plan.get('nextStep', '')}".lower():
+            continue
         if filters.get("account_type") in ACCOUNT_TYPES and plan["accountType"] != filters["account_type"]:
             continue
         if filters.get("stage") and plan["currentStage"] != filters["stage"]:
             continue
-        if filters.get("status") and plan["healthStatus"] != filters["status"] and plan.get("planStatus") != filters["status"]:
+        if filters.get("status") and plan.get("planStatus") != filters["status"]:
+            continue
+        if filters.get("health") and plan.get("healthStatus") != filters["health"]:
             continue
         if filters.get("owner") and plan["planOwner"] != filters["owner"] and plan["nextStepOwner"] != filters["owner"]:
             continue
@@ -2351,6 +2357,17 @@ def date_diff_today(value: str) -> int:
         return 0
 
 
+def count_next_actions_due(plans: list[dict[str, Any]]) -> int:
+    today = date.today().isoformat()
+    week = (date.today() + timedelta(days=7)).isoformat()
+    count = 0
+    for plan in plans:
+        for item in plan.get("items", []):
+            if item["status"] != "Completed" and item.get("dueDate") and today <= item["dueDate"] <= week:
+                count += 1
+    return count
+
+
 def account_plan_summary(database_path: str, plans: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "totalActivePlans": sum(1 for plan in plans if not plan["isLive"] and not plan["isQualifiedOut"]),
@@ -2358,6 +2375,7 @@ def account_plan_summary(database_path: str, plans: list[dict[str, Any]]) -> dic
         "totalDirectCustomers": sum(1 for plan in plans if plan["accountType"] == "Direct Customer"),
         "inProgress": sum(1 for plan in plans if plan.get("planStatus") == "In Progress"),
         "onHold": sum(1 for plan in plans if plan.get("planStatus") == "On Hold"),
+        "nextActionsDue": count_next_actions_due(plans),
         "overduePlans": sum(1 for plan in plans if plan["overdueItems"] > 0),
         "live": sum(1 for plan in plans if plan["isLive"]),
         "qualifiedOut": sum(1 for plan in plans if plan["isQualifiedOut"]),

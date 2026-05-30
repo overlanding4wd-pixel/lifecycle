@@ -906,3 +906,42 @@ textarea {
     background: #fee2e2;
     color: #991b1b;
 }
+
+.empty-dashboard-state {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    padding: 22px;
+    text-align: center;
+}
+
+.empty-dashboard-state p {
+    color: var(--grey-500);
+    flex-basis: 100%;
+    margin: 0 0 4px;
+}
+
+.attention-list {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.attention-card {
+    background: var(--grey-025);
+    border: 1px solid var(--grey-200);
+    border-radius: 14px;
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+}
+
+.attention-card strong {
+    color: var(--blue-900);
+}
+
+.attention-card small {
+    color: var(--grey-500);
+}
