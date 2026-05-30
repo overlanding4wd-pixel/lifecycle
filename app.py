@@ -5,7 +5,7 @@ import io
 import json
 import os
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 from typing import Any
 
@@ -40,6 +40,7 @@ FIELD_ALIASES = {
     "trackertype": "tracker_type",
     "tracker": "tracker_type",
     "type": "tracker_type",
+    "activity": "activity",
     "opportunity name": "title",
     "opportunity": "title",
     "title": "title",
@@ -50,21 +51,31 @@ FIELD_ALIASES = {
     "account": "customer",
     "owner": "owner",
     "assigned to": "owner",
+    "cortave owner": "cortave_owner",
+    "innovator owner": "innovator_owner",
+    "who @ cortave": "who_at_cortave",
+    "who cortave": "who_at_cortave",
     "stage": "stage",
     "status": "status",
     "description": "description",
     "notes": "notes",
+    "start day": "start_day",
     "start date": "start_date",
     "startdate": "start_date",
+    "actual start date": "actual_start_date",
+    "actual start date edit kick off date for automated deadlines": "actual_start_date",
     "due date": "due_date",
     "duedate": "due_date",
     "target date": "due_date",
+    "target due day": "target_due_day",
     "completed date": "completed_date",
     "completion date": "completed_date",
     "completeddate": "completed_date",
     "priority": "priority",
     "next action": "next_action",
     "nextaction": "next_action",
+    "link": "link",
+    "url": "link",
 }
 
 RECORD_FIELDS = [
@@ -72,15 +83,23 @@ RECORD_FIELDS = [
     "stage",
     "status",
     "title",
+    "activity",
     "owner",
+    "who_at_cortave",
+    "cortave_owner",
+    "innovator_owner",
     "customer",
     "description",
     "notes",
+    "start_day",
     "start_date",
+    "actual_start_date",
+    "target_due_day",
     "due_date",
     "completed_date",
     "priority",
     "next_action",
+    "link",
     "additional_fields",
 ]
 
@@ -360,7 +379,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         if not upload or not upload.filename:
             return jsonify({"error": "Upload a CSV or Excel file."}), 400
 
-        rows = parse_uploaded_file(upload)
+        rows = parse_uploaded_file(upload, tracker_type)
         imported = 0
         errors = []
         for index, row in enumerate(rows, start=2):
@@ -448,15 +467,23 @@ def init_db(database_path: str) -> None:
             stage TEXT NOT NULL,
             status TEXT NOT NULL,
             title TEXT NOT NULL,
+            activity TEXT,
             owner TEXT NOT NULL,
+            who_at_cortave TEXT,
+            cortave_owner TEXT,
+            innovator_owner TEXT,
             customer TEXT,
             description TEXT,
             notes TEXT,
+            start_day TEXT,
             start_date TEXT,
+            actual_start_date TEXT,
+            target_due_day TEXT,
             due_date TEXT,
             completed_date TEXT,
             priority TEXT,
             next_action TEXT,
+            link TEXT,
             additional_fields TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
@@ -494,24 +521,53 @@ def init_db(database_path: str) -> None:
         )
         """
     )
+    ensure_tracker_record_columns(db)
     seed_options(db)
     db.commit()
     db.close()
 
 
+def ensure_tracker_record_columns(db: sqlite3.Connection) -> None:
+    existing = {row[1] for row in db.execute("PRAGMA table_info(tracker_records)").fetchall()}
+    columns = {
+        "activity": "TEXT",
+        "who_at_cortave": "TEXT",
+        "cortave_owner": "TEXT",
+        "innovator_owner": "TEXT",
+        "start_day": "TEXT",
+        "actual_start_date": "TEXT",
+        "target_due_day": "TEXT",
+        "link": "TEXT",
+    }
+    for name, column_type in columns.items():
+        if name not in existing:
+            db.execute(f"ALTER TABLE tracker_records ADD COLUMN {name} {column_type}")
+
+
 def seed_options(db: sqlite3.Connection) -> None:
     defaults = [
-        ("status", "Not Started", "Not Started", "#6b7280", 10),
-        ("status", "In Progress", "In Progress", "#f59e0b", 20),
-        ("status", "On Hold", "On Hold", "#2563eb", 30),
-        ("status", "Completed", "Completed", "#16a34a", 40),
+        ("status", "Not Started", "Not Started", "#f4c7c3", 10),
+        ("status", "In Progress", "In Progress", "#fce8b2", 20),
+        ("status", "On Hold", "On Hold", "#c9daf8", 30),
+        ("status", "Completed", "Completed", "#b7e1cd", 40),
         ("stage", "I20", "I20", "", 10),
         ("stage", "I50", "I50", "", 20),
         ("stage", "D20", "D20", "", 30),
         ("stage", "Qualified Out", "Qualified Out", "", 40),
         ("stage", "I0", "I0", "", 50),
         ("stage", "D0", "D0", "", 60),
+        ("stage", "D50", "D50", "", 70),
         ("owner", "Unassigned", "Unassigned", "", 10),
+        ("owner", "Wade / Sales", "Wade / Sales", "", 20),
+        ("owner", "Melissa / Marketing", "Melissa / Marketing", "", 30),
+        ("owner", "Mark / Innovator", "Mark / Innovator", "", 40),
+        ("owner", "Bobby / Experience", "Bobby / Experience", "", 50),
+        ("owner", "Nick / Sales", "Nick / Sales", "", 60),
+        ("owner", "Customer", "Customer", "", 70),
+        ("owner", "Legal", "Legal", "", 80),
+        ("owner", "Finance", "Finance", "", 90),
+        ("owner", "Innovator", "Innovator", "", 100),
+        ("owner", "Innovator / cortave", "Innovator / cortave", "", 110),
         ("priority", "Low", "Low", "", 10),
         ("priority", "Medium", "Medium", "", 20),
         ("priority", "High", "High", "", 30),
@@ -533,12 +589,13 @@ def clean_text(value: Any) -> str:
 
 
 def utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def validate_record_payload(payload: dict[str, Any], database_path: str) -> tuple[dict[str, Any], list[str]]:
     raw_dates = {
         "start_date": payload.get("startDate") or payload.get("start_date"),
+        "actual_start_date": payload.get("actualStartDate") or payload.get("actual_start_date"),
         "due_date": payload.get("dueDate") or payload.get("due_date"),
         "completed_date": payload.get("completedDate") or payload.get("completed_date"),
     }
@@ -546,16 +603,24 @@ def validate_record_payload(payload: dict[str, Any], database_path: str) -> tupl
         "tracker_type": clean_text(payload.get("trackerType") or payload.get("tracker_type")).upper(),
         "stage": clean_text(payload.get("stage")),
         "status": clean_text(payload.get("status")),
-        "title": clean_text(payload.get("title") or payload.get("opportunityName")),
-        "owner": clean_text(payload.get("owner")),
+        "title": clean_text(payload.get("title") or payload.get("opportunityName") or payload.get("activity")),
+        "activity": clean_text(payload.get("activity") or payload.get("title") or payload.get("opportunityName")),
+        "owner": clean_text(payload.get("owner") or payload.get("cortaveOwner") or payload.get("cortave_owner") or payload.get("whoAtCortave") or payload.get("who_at_cortave")),
+        "who_at_cortave": clean_text(payload.get("whoAtCortave") or payload.get("who_at_cortave")),
+        "cortave_owner": clean_text(payload.get("cortaveOwner") or payload.get("cortave_owner")),
+        "innovator_owner": clean_text(payload.get("innovatorOwner") or payload.get("innovator_owner")),
         "customer": clean_text(payload.get("customer") or payload.get("accountName")),
         "description": clean_text(payload.get("description")),
         "notes": clean_text(payload.get("notes")),
+        "start_day": clean_text(payload.get("startDay") or payload.get("start_day")),
         "start_date": clean_date(raw_dates["start_date"]),
+        "actual_start_date": clean_date(raw_dates["actual_start_date"]),
+        "target_due_day": clean_text(payload.get("targetDueDay") or payload.get("target_due_day")),
         "due_date": clean_date(raw_dates["due_date"]),
         "completed_date": clean_date(raw_dates["completed_date"]),
         "priority": clean_text(payload.get("priority")),
         "next_action": clean_text(payload.get("nextAction") or payload.get("next_action")),
+        "link": clean_text(payload.get("link")),
         "additional_fields": normalize_additional_fields(payload.get("additionalFields") or payload.get("additional_fields")),
     }
     errors = []
@@ -692,15 +757,23 @@ def record_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "stage": row["stage"],
         "status": row["status"],
         "title": row["title"],
+        "activity": row["activity"] or row["title"],
         "owner": row["owner"],
+        "whoAtCortave": row["who_at_cortave"] or "",
+        "cortaveOwner": row["cortave_owner"] or "",
+        "innovatorOwner": row["innovator_owner"] or "",
         "customer": row["customer"] or "",
         "description": row["description"] or "",
         "notes": row["notes"] or "",
+        "startDay": row["start_day"] or "",
         "startDate": row["start_date"] or "",
+        "actualStartDate": row["actual_start_date"] or "",
+        "targetDueDay": row["target_due_day"] or "",
         "dueDate": row["due_date"] or "",
         "completedDate": row["completed_date"] or "",
         "priority": row["priority"] or "",
         "nextAction": row["next_action"] or "",
+        "link": row["link"] or "",
         "additionalFields": additional,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
@@ -728,20 +801,30 @@ def summarize_changes(existing: sqlite3.Row, updated: dict[str, Any]) -> dict[st
     return changes
 
 
-def parse_uploaded_file(upload: Any) -> list[dict[str, Any]]:
+def parse_uploaded_file(upload: Any, tracker_type: str = "") -> list[dict[str, Any]]:
     filename = upload.filename.lower()
     if filename.endswith(".xlsx"):
         if load_workbook is None:
             raise ValueError("Excel import requires openpyxl.")
         workbook = load_workbook(upload.stream, data_only=True)
-        sheet = workbook.active
+        preferred_sheet = f"{tracker_type.upper()} Tracker" if tracker_type else ""
+        sheet = workbook[preferred_sheet] if preferred_sheet in workbook.sheetnames else workbook.active
         rows = list(sheet.iter_rows(values_only=True))
         if not rows:
             return []
-        headers = [clean_text(value) for value in rows[0]]
-        return [dict(zip(headers, row)) for row in rows[1:] if any(cell not in (None, "") for cell in row)]
+        header_index = find_header_row(rows)
+        headers = [clean_text(value) for value in rows[header_index]]
+        return [dict(zip(headers, row)) for row in rows[header_index + 1 :] if any(cell not in (None, "") for cell in row)]
     stream = io.StringIO(upload.stream.read().decode("utf-8-sig"))
     return list(csv.DictReader(stream))
+
+
+def find_header_row(rows: list[tuple[Any, ...]]) -> int:
+    for index, row in enumerate(rows[:20]):
+        normalized = {normalize_header(value) for value in row if clean_text(value)}
+        if {"stage", "status"}.issubset(normalized) and ("activity" in normalized or "opportunity name" in normalized or "title" in normalized):
+            return index
+    return 0
 
 
 def map_import_row(row: dict[str, Any], tracker_type: str) -> dict[str, Any]:
@@ -749,7 +832,7 @@ def map_import_row(row: dict[str, Any], tracker_type: str) -> dict[str, Any]:
     extra: dict[str, Any] = {}
     for raw_key, value in row.items():
         key = clean_text(raw_key)
-        mapped = FIELD_ALIASES.get(key.lower().replace("_", " "))
+        mapped = FIELD_ALIASES.get(normalize_header(key))
         if mapped:
             payload[to_camel(mapped)] = value
         elif key:
@@ -757,6 +840,12 @@ def map_import_row(row: dict[str, Any], tracker_type: str) -> dict[str, Any]:
     payload["trackerType"] = tracker_type
     payload["additionalFields"] = extra
     return payload
+
+
+def normalize_header(value: Any) -> str:
+    text = clean_text(value).lower().replace("_", " ").replace("@", " @ ")
+    normalized = "".join(char if char.isalnum() or char in {" ", "@"} else " " for char in text)
+    return " ".join(normalized.split())
 
 
 def to_camel(field: str) -> str:
@@ -794,15 +883,23 @@ def export_headers(records: list[dict[str, Any]]) -> list[str]:
         "stage",
         "status",
         "title",
+        "activity",
         "owner",
+        "whoAtCortave",
+        "cortaveOwner",
+        "innovatorOwner",
         "customer",
         "description",
         "notes",
+        "startDay",
         "startDate",
+        "actualStartDate",
+        "targetDueDay",
         "dueDate",
         "completedDate",
         "priority",
         "nextAction",
+        "link",
         "createdAt",
         "updatedAt",
         "updatedBy",

@@ -219,14 +219,16 @@ function renderRecordTable() {
         const row = document.createElement("tr");
         row.className = record.isOverdue ? "overdue" : "";
         row.innerHTML = `
-            <td><button class="link-button" data-open-record="${record.id}">${escapeHtml(record.title)}</button></td>
+            <td><button class="link-button" data-open-record="${record.id}">${escapeHtml(record.activity || record.title)}</button></td>
             <td>${escapeHtml(record.stage)}</td>
             <td>${statusBadge(record.status)}</td>
             <td>${escapeHtml(record.owner)}</td>
+            <td>${escapeHtml(record.whoAtCortave || "-")}</td>
+            <td>${escapeHtml(record.cortaveOwner || "-")}</td>
+            <td>${escapeHtml(record.innovatorOwner || "-")}</td>
             <td>${escapeHtml(record.customer || "-")}</td>
-            <td>${escapeHtml(record.priority || "-")}</td>
             <td>${record.isOverdue ? "<strong>Overdue</strong><br>" : ""}${escapeHtml(record.dueDate || "-")}</td>
-            <td>${escapeHtml(record.nextAction || "-")}</td>
+            <td>${record.link ? `<a href="${escapeHtml(record.link)}" target="_blank" rel="noreferrer">Open</a>` : "-"}</td>
             <td>${formatDateTime(record.updatedAt)}</td>
             <td class="right"><button class="button ghost small" data-open-record="${record.id}">Open</button></td>
         `;
@@ -467,7 +469,20 @@ async function importRecords(event) {
 }
 
 function statusBadge(status) {
-    return `<span class="badge badge-status-${slug(status)}">${escapeHtml(status || "Unknown")}</span>`;
+    const option = (lifecycle.options.status || []).find((item) => item.value === status);
+    const background = option?.color || "";
+    const style = background ? ` style="background:${escapeHtml(background)}; color:${readableTextColor(background)}"` : "";
+    return `<span class="badge badge-status-${slug(status)}"${style}>${escapeHtml(status || "Unknown")}</span>`;
+}
+
+function readableTextColor(hex) {
+    const value = String(hex || "").replace("#", "");
+    if (!/^[0-9a-fA-F]{6}$/.test(value)) return "#111827";
+    const r = parseInt(value.slice(0, 2), 16);
+    const g = parseInt(value.slice(2, 4), 16);
+    const b = parseInt(value.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.62 ? "#111827" : "#ffffff";
 }
 
 function slug(value) {

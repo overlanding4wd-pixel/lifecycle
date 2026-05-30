@@ -28,12 +28,13 @@ Open http://localhost:5000.
 The app creates `lifecycle_tracker.db` automatically on first request and seeds the required workbook dropdown values:
 
 - Status: Not Started, In Progress, On Hold, Completed
-- Stage: I20, I50, D20, Qualified Out, I0, D0
+- Stage: I20, I50, D20, D50, Qualified Out, I0, D0
+- Owners from the Lifecycle Workbook validation sheet, including Wade / Sales, Melissa / Marketing, Mark / Innovator, Bobby / Experience, Nick / Sales, Customer, Legal, Finance, Innovator, and Innovator / cortave
 - Priority: Low, Medium, High, Critical
 
 ## Import notes
 
-CSV and Excel imports map common workbook headers such as `Opportunity Name`, `Account Name`, `Owner`, `Stage`, `Status`, `Due Date`, and `Next Action` to app fields. Unrecognised workbook columns are preserved in the record's additional imported fields JSON so workbook-specific columns are not lost.
+CSV and Excel imports map common workbook headers such as `Opportunity Name`, `Account Name`, `Owner`, `Stage`, `Status`, `Due Date`, and `Next Action` to app fields. The uploaded Lifecycle Workbook is also supported directly: when importing an `.xlsx`, the app selects the matching `I20 Tracker` or `D20 Tracker` sheet and maps workbook columns including `Activity`, `who @ cortave`, `Start Day`, `Actual Start Date`, `Target Due Day`, `cortave Owner`, `Innovator Owner`, `Link`, and `Notes`. Unrecognised workbook columns are preserved in the record's additional imported fields JSON so workbook-specific columns are not lost.
 
 ## Production hardening ideas
 

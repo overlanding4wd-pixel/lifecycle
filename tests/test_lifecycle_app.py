@@ -3,6 +3,8 @@ import os
 import tempfile
 import unittest
 
+from openpyxl import Workbook
+
 from app import create_app, init_db
 
 
@@ -24,7 +26,7 @@ class LifecycleAppTest(unittest.TestCase):
         statuses = {item["value"] for item in payload["status"]}
         stages = {item["value"] for item in payload["stage"]}
         self.assertTrue({"Not Started", "In Progress", "On Hold", "Completed"}.issubset(statuses))
-        self.assertTrue({"I20", "I50", "D20", "Qualified Out", "I0", "D0"}.issubset(stages))
+        self.assertTrue({"I20", "I50", "D20", "Qualified Out", "I0", "D0", "D50"}.issubset(stages))
 
     def test_record_crud_and_validation(self):
         bad_response = self.client.post(
@@ -88,6 +90,63 @@ class LifecycleAppTest(unittest.TestCase):
 
         records = self.client.get("/api/records?trackerType=I20").get_json()["records"]
         self.assertEqual(records[0]["additionalFields"]["Workbook Extra"], "Preserved")
+
+    def test_lifecycle_workbook_import_uses_tracker_sheet_and_fields(self):
+        workbook = Workbook()
+        overview = workbook.active
+        overview.title = "Overview"
+        overview.append(["This sheet should not import"])
+        tracker = workbook.create_sheet("D20 Tracker")
+        tracker.append([
+            "Stage",
+            "Activity",
+            "Status",
+            "who @ cortave ",
+            "Start Day",
+            "Actual Start Date \n(Edit Kick Off Date for Automated deadlines)",
+            "Target Due Day",
+            "Due Date",
+            "cortave Owner",
+            "Innovator Owner",
+            "Link",
+            "Notes",
+        ])
+        tracker.append([
+            "D20",
+            "Discovery meeting",
+            "In Progress",
+            "Wade / Sales",
+            20,
+            "2030-01-01",
+            10,
+            "2030-01-11",
+            "Bobby",
+            "Innovator contact",
+            "https://example.com",
+            "Workbook note",
+        ])
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        response = self.client.post(
+            "/api/import",
+            data={"trackerType": "D20", "file": (output, "Lifecycle Workbook.xlsx")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["imported"], 1)
+        records = self.client.get("/api/records?trackerType=D20").get_json()["records"]
+        self.assertEqual(records[0]["title"], "Discovery meeting")
+        self.assertEqual(records[0]["whoAtCortave"], "Wade / Sales")
+        self.assertEqual(records[0]["startDay"], "20")
+        self.assertEqual(records[0]["actualStartDate"], "2030-01-01")
+        self.assertEqual(records[0]["targetDueDay"], "10")
+        self.assertEqual(records[0]["dueDate"], "2030-01-11")
+        self.assertEqual(records[0]["cortaveOwner"], "Bobby")
+        self.assertEqual(records[0]["innovatorOwner"], "Innovator contact")
+        self.assertEqual(records[0]["link"], "https://example.com")
 
 
 if __name__ == "__main__":

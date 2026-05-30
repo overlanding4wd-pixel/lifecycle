@@ -60,14 +60,16 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th><button data-sort="title">Title</button></th>
+                        <th><button data-sort="title">Activity / Title</button></th>
                         <th><button data-sort="stage">Stage</button></th>
                         <th><button data-sort="status">Status</button></th>
                         <th><button data-sort="owner">Owner</button></th>
+                        <th>Who @ cortave</th>
+                        <th>cortave Owner</th>
+                        <th>Innovator Owner</th>
                         <th>Customer</th>
-                        <th><button data-sort="priority">Priority</button></th>
                         <th><button data-sort="dueDate">Due date</button></th>
-                        <th>Next action</th>
+                        <th>Link</th>
                         <th><button data-sort="updatedAt">Updated</button></th>
                         <th class="right">Actions</th>
                     </tr>
@@ -92,7 +94,7 @@
                 <input type="hidden" name="id">
                 <input type="hidden" name="trackerType" value="{{ tracker_type }}">
                 <label>
-                    Title / opportunity name *
+                    Activity / title *
                     <input name="title" required>
                 </label>
                 <div class="form-grid">
@@ -115,6 +117,20 @@
                         <select name="priority" data-options="priority"></select>
                     </label>
                 </div>
+                <div class="form-grid">
+                    <label>
+                        who @ cortave
+                        <input name="whoAtCortave">
+                    </label>
+                    <label>
+                        cortave Owner
+                        <input name="cortaveOwner">
+                    </label>
+                    <label>
+                        Innovator Owner
+                        <input name="innovatorOwner">
+                    </label>
+                </div>
                 <label>
                     Customer / account name
                     <input name="customer">
@@ -129,6 +145,20 @@
                 </label>
                 <div class="form-grid">
                     <label>
+                        Start day offset
+                        <input name="startDay" inputmode="numeric">
+                    </label>
+                    <label>
+                        Actual start date
+                        <input type="date" name="actualStartDate">
+                    </label>
+                    <label>
+                        Target due day offset
+                        <input name="targetDueDay" inputmode="numeric">
+                    </label>
+                </div>
+                <div class="form-grid">
+                    <label>
                         Start date
                         <input type="date" name="startDate">
                     </label>
@@ -141,6 +171,10 @@
                         <input type="date" name="completedDate">
                     </label>
                 </div>
+                <label>
+                    Link
+                    <input name="link" type="url" placeholder="https://...">
+                </label>
                 <label>
                     Next action
                     <input name="nextAction">
