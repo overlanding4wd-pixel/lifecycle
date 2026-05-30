@@ -121,6 +121,23 @@ textarea {
     margin-bottom: 24px;
 }
 
+.topbar-brand {
+    align-items: center;
+    display: flex;
+    gap: 18px;
+}
+
+.topbar-logo {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(0, 74, 136, 0.08);
+    display: block;
+    height: auto;
+    padding: 9px 12px;
+    width: 132px;
+}
+
 .topbar h1,
 .panel h2,
 .settings-card h3,
@@ -635,6 +652,11 @@ textarea {
     .user-menu,
     .actions {
         align-items: stretch;
+        flex-direction: column;
+    }
+
+    .topbar-brand {
+        align-items: flex-start;
         flex-direction: column;
     }
 
