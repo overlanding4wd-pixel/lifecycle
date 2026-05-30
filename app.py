@@ -138,6 +138,7 @@ PARTNER_HEADER_ALIASES = {
 }
 
 ACCOUNT_TYPES = {"Innovator", "Direct Customer"}
+LIFECYCLE_STATUSES = {"Not Started", "In Progress", "On Hold", "Completed"}
 
 INNOVATOR_TEMPLATE_ITEMS = [
     ("I0", "Kick-off date set for automated deadlines", "Mark / Innovator", 0, 0),
@@ -215,7 +216,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-portfolio-dashboard",
+            "asset_version": "20260530-status-persist",
         }
 
     @app.route("/")
@@ -409,6 +410,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         if not existing:
             db.close()
             return jsonify({"error": "Lifecycle Item not found."}), 404
+        status = normalize_lifecycle_status(payload.get("status") if payload.get("status") is not None else existing["status"])
+        completed_date = clean_date(payload.get("completedDate") or payload.get("completed_date")) if ("completedDate" in payload or "completed_date" in payload) else existing["completed_date"]
+        if status != "Completed" and ("status" in payload or "completedDate" in payload or "completed_date" in payload):
+            completed_date = ""
+        if status == "Completed" and not completed_date:
+            completed_date = date.today().isoformat()
+        updated_at = utc_now()
         db.execute(
             """
             UPDATE lifecycle_items
@@ -417,25 +425,28 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             WHERE id = ?
             """,
             (
-                clean_text(payload.get("stage") or existing["stage"]),
-                clean_text(payload.get("activity") or existing["activity"]),
-                clean_text(payload.get("status") or existing["status"]),
+                clean_text(payload.get("stage") if payload.get("stage") is not None else existing["stage"]),
+                clean_text(payload.get("activity") if payload.get("activity") is not None else existing["activity"]),
+                status,
                 clean_text(payload.get("responsibleParty") or payload.get("responsible_party") or existing["responsible_party"]),
                 clean_date(payload.get("actualStartDate") or payload.get("actual_start_date")) or existing["actual_start_date"],
                 clean_date(payload.get("dueDate") or payload.get("due_date")) or existing["due_date"],
-                clean_date(payload.get("completedDate") or payload.get("completed_date")) or existing["completed_date"],
-                clean_text(payload.get("cortaveOwner") or payload.get("cortave_owner") or existing["cortave_owner"]),
-                clean_text(payload.get("accountOwner") or payload.get("account_owner") or existing["account_owner"]),
-                clean_text(payload.get("link") or existing["link"]),
+                completed_date,
+                clean_text(payload.get("cortaveOwner") if payload.get("cortaveOwner") is not None else payload.get("cortave_owner") if payload.get("cortave_owner") is not None else existing["cortave_owner"]),
+                clean_text(payload.get("accountOwner") if payload.get("accountOwner") is not None else payload.get("account_owner") if payload.get("account_owner") is not None else existing["account_owner"]),
+                clean_text(payload.get("link") if payload.get("link") is not None else existing["link"]),
                 clean_text(payload.get("notes") if payload.get("notes") is not None else existing["notes"]),
-                clean_text(payload.get("nextAction") or payload.get("next_action") or existing["next_action"]),
-                utc_now(),
+                clean_text(payload.get("nextAction") if payload.get("nextAction") is not None else payload.get("next_action") if payload.get("next_action") is not None else existing["next_action"]),
+                updated_at,
                 item_id,
             ),
         )
+        db.execute("UPDATE account_plans SET updated_at = ? WHERE id = ?", (updated_at, existing["account_plan_id"]))
         db.commit()
+        updated = db.execute("SELECT * FROM lifecycle_items WHERE id = ?", (item_id,)).fetchone()
+        item = lifecycle_item_to_dict(updated)
         db.close()
-        return jsonify({"ok": True})
+        return jsonify({"item": item})
 
     @app.post("/api/account-plans/<int:plan_id>/items")
     @role_required("admin", "editor")
@@ -464,7 +475,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 next_sort,
                 clean_text(payload.get("stage")) or ("I20" if plan["account_type"] == "Innovator" else "D20"),
                 clean_text(payload.get("activity")) or "New lifecycle item",
-                clean_text(payload.get("status")) or "Not Started",
+                normalize_lifecycle_status(payload.get("status")),
                 clean_text(payload.get("responsibleParty") or payload.get("responsible_party")),
                 clean_date(payload.get("actualStartDate") or payload.get("actual_start_date")),
                 clean_date(payload.get("dueDate") or payload.get("due_date")),
@@ -1320,7 +1331,7 @@ def record_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "id": row["id"],
         "trackerType": row["tracker_type"],
         "stage": row["stage"],
-        "status": row["status"],
+        "status": normalize_lifecycle_status(row["status"]),
         "title": row["title"],
         "activity": row["activity"] or row["title"],
         "owner": row["owner"],
@@ -2009,6 +2020,21 @@ def ensure_seeded_template_items_current(db: sqlite3.Connection, template_id: in
     )
 
 
+def normalize_lifecycle_status(value: Any) -> str:
+    text = clean_text(value)
+    aliases = {
+        "": "Not Started",
+        "Not Completed": "Not Started",
+        "Incomplete": "Not Started",
+        "Pending": "Not Started",
+        "not completed": "Not Started",
+        "incomplete": "Not Started",
+        "pending": "Not Started",
+    }
+    normalized = aliases.get(text, aliases.get(text.lower(), text))
+    return normalized if normalized in LIFECYCLE_STATUSES else "Not Started"
+
+
 def validate_account_plan_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     plan = {
         "account_name": clean_text(payload.get("accountName") or payload.get("account_name")),
@@ -2198,7 +2224,7 @@ def lifecycle_item_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "sortOrder": row["sort_order"],
         "stage": row["stage"],
         "activity": row["activity"],
-        "status": row["status"],
+        "status": normalize_lifecycle_status(row["status"]),
         "responsibleParty": row["responsible_party"] or "",
         "startDayOffset": row["start_day_offset"],
         "actualStartDate": row["actual_start_date"] or "",
@@ -2287,13 +2313,15 @@ def enrich_account_plan_rollup(plan: dict[str, Any]) -> None:
 
 
 def calculate_current_stage(items: list[dict[str, Any]]) -> str:
-    active = [item for item in items if item["status"] != "Completed"]
-    if not active and items:
-        return "Live"
     if any("qualified out" in item["activity"].lower() and item["status"] == "Completed" for item in items):
         return "Qualified Out"
-    target = active[0] if active else (items[-1] if items else None)
-    return target["stage"] if target else ""
+    if not items:
+        return ""
+    active = [item for item in items if item["status"] != "Completed"]
+    if not active:
+        return "Live"
+    order = {"I0": 0, "D0": 0, "I20": 1, "D20": 1, "I50": 2, "Live": 3, "Qualified Out": 4}
+    return max(active, key=lambda item: order.get(item.get("stage", ""), -1)).get("stage", "")
 
 
 def date_diff_today(value: str) -> int:

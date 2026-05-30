@@ -1,5 +1,6 @@
 import io
 import os
+from pathlib import Path
 import tempfile
 import unittest
 
@@ -453,6 +454,103 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertEqual(updated_item["activity"], "Edited lifecycle action")
         self.assertEqual(updated_item["status"], "In Progress")
         self.assertEqual(updated_item["dueDate"], "2026-06-04")
+
+    def test_lifecycle_item_status_persists_and_dashboard_recalculates(self):
+        first = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Persistence One",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2020-01-01",
+            },
+        ).get_json()["plan"]
+        second = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Persistence Two",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2020-01-01",
+            },
+        ).get_json()["plan"]
+
+        self.assertEqual(len(first["items"]), 27)
+        self.assertEqual(len(second["items"]), 27)
+        self.assertNotEqual(first["items"][0]["id"], second["items"][0]["id"])
+
+        item_id = first["items"][0]["id"]
+        update = self.client.put(
+            f"/api/lifecycle-items/{item_id}",
+            json={
+                "stage": "I0",
+                "activity": "Kick-off date set for automated deadlines",
+                "status": "In Progress",
+                "responsibleParty": "Mark / Innovator",
+                "actualStartDate": "2020-01-01",
+                "dueDate": "2020-01-01",
+                "completedDate": "",
+                "notes": "Status changed",
+                "link": "",
+                "nextAction": "Follow up",
+            },
+        )
+        self.assertEqual(update.status_code, 200)
+        self.assertEqual(update.get_json()["item"]["status"], "In Progress")
+
+        refreshed = self.client.get(f"/api/account-plans/{first['id']}/items").get_json()["items"]
+        self.assertEqual(refreshed[0]["status"], "In Progress")
+        self.assertEqual(refreshed[0]["nextAction"], "Follow up")
+
+        # Saving the plan header must not re-seed or reset lifecycle items.
+        self.client.put(
+            f"/api/account-plans/{first['id']}",
+            json={
+                "accountName": "Persistence One Updated",
+                "planOwner": "Melissa",
+                "kickOffDate": "2020-01-01",
+                "targetGoLiveDate": "2020-04-01",
+                "territory": "EMEA",
+                "notes": "Header update",
+            },
+        )
+        after_header_save = self.client.get(f"/api/account-plans/{first['id']}/items").get_json()["items"]
+        self.assertEqual(len(after_header_save), 27)
+        self.assertEqual(after_header_save[0]["status"], "In Progress")
+
+        dashboard_plan = next(
+            plan for plan in self.client.get("/api/account-plans").get_json()["plans"]
+            if plan["id"] == first["id"]
+        )
+        self.assertEqual(dashboard_plan["healthStatus"], "Overdue")
+        self.assertEqual(dashboard_plan["nextStep"], "Kick-off date set for automated deadlines")
+        self.assertGreater(dashboard_plan["daysOverdue"], 0)
+
+        completed = self.client.put(
+            f"/api/lifecycle-items/{item_id}",
+            json={
+                "stage": "I0",
+                "activity": "Kick-off date set for automated deadlines",
+                "status": "Completed",
+                "responsibleParty": "Mark / Innovator",
+                "actualStartDate": "2020-01-01",
+                "dueDate": "2020-01-01",
+                "completedDate": "2020-01-02",
+                "notes": "Done",
+                "link": "",
+                "nextAction": "",
+            },
+        )
+        self.assertEqual(completed.get_json()["item"]["status"], "Completed")
+        refreshed_completed = self.client.get(f"/api/account-plans/{first['id']}/items").get_json()["items"]
+        self.assertEqual(refreshed_completed[0]["status"], "Completed")
+        self.assertEqual(refreshed_completed[0]["completedDate"], "2020-01-02")
+
+    def test_status_badge_helper_is_shared_in_frontend(self):
+        script = Path("static/app.js").read_text()
+        self.assertIn("function getStatusBadgeClass", script)
+        self.assertIn("badge-status-in-progress", script)
+        self.assertIn("badge-status-completed", script)
 
 
 if __name__ == "__main__":

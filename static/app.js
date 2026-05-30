@@ -156,7 +156,7 @@ function renderLifecycleItems(items) {
             <td>${item.sortOrder}</td>
             <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
             <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
-            <td><select name="status" data-status-value="${escapeHtml(item.status)}"></select></td>
+            <td><div class="status-edit"><span class="badge ${getStatusBadgeClass(item.status)}" data-status-preview>${escapeHtml(item.status)}</span><select name="status" data-status-value="${escapeHtml(item.status)}"></select></div></td>
             <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
             <td>${item.startDayOffset ?? ""}</td>
             <td><input type="date" name="actualStartDate" value="${escapeHtml(item.actualStartDate)}"></td>
@@ -179,25 +179,20 @@ function renderLifecycleItems(items) {
             select.appendChild(option);
         });
         select.value = select.dataset.statusValue;
+        select.addEventListener("change", async () => {
+            const row = select.closest("[data-lifecycle-item-row]") || select.closest("tr");
+            const preview = row?.querySelector("[data-status-preview]");
+            if (preview) {
+                preview.className = `badge ${getStatusBadgeClass(select.value)}`;
+                preview.textContent = select.value;
+            }
+            const button = row?.querySelector("[data-save-lifecycle-item], [data-save-plan-item]");
+            if (row && button) await saveLifecycleItemRow(row, button);
+        });
     });
     target.querySelectorAll("[data-save-lifecycle-item]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const row = button.closest("[data-lifecycle-item-row]");
-            const payload = {};
-            row.querySelectorAll("input, select, textarea").forEach((field) => {
-                payload[field.name] = field.value;
-            });
-            button.disabled = true;
-            button.textContent = "Saving...";
-            try {
-                await api(`/api/lifecycle-items/${button.dataset.saveLifecycleItem}`, { method: "PUT", body: JSON.stringify(payload) });
-                button.textContent = "Saved";
-                await loadAccountPlanDetail();
-            } catch (error) {
-                alert(error.message);
-                button.textContent = "Save";
-                button.disabled = false;
-            }
+            await saveLifecycleItemRow(button.closest("[data-lifecycle-item-row]"), button);
         });
     });
     target.querySelectorAll("[data-delete-lifecycle-item]").forEach((button) => {
@@ -209,6 +204,36 @@ function renderLifecycleItems(items) {
     });
 }
 
+
+
+async function saveLifecycleItemRow(row, button) {
+    if (!row || !button) return;
+    const itemId = button.dataset.saveLifecycleItem || button.dataset.savePlanItem;
+    const payload = {};
+    row.querySelectorAll("input, select, textarea").forEach((field) => {
+        payload[field.name] = field.value;
+    });
+    button.disabled = true;
+    button.textContent = "Saving...";
+    try {
+        const response = await api(`/api/lifecycle-items/${itemId}`, { method: "PUT", body: JSON.stringify(payload) });
+        const preview = row.querySelector("[data-status-preview]");
+        if (preview && response.item?.status) {
+            preview.className = `badge ${getStatusBadgeClass(response.item.status)}`;
+            preview.textContent = response.item.status;
+        }
+        button.textContent = "Saved";
+        if (document.querySelector("[data-page='account-plan']")) {
+            await loadAccountPlanDetail();
+        } else if (lifecycle.selectedPlanId) {
+            await loadPlanLifecycleItems();
+        }
+    } catch (error) {
+        alert(error.message);
+        button.textContent = "Save";
+        button.disabled = false;
+    }
+}
 
 function renderPlanWorkspaceSummary(plan) {
     const target = document.querySelector("[data-plan-workspace-summary]");
@@ -306,8 +331,7 @@ function accountTypeBadge(accountType) {
 }
 
 function healthBadge(status) {
-    const cls = status === "Live" ? "badge-status-completed" : status === "On Hold" ? "badge-status-on-hold" : status === "Overdue" ? "badge-status-not-started" : "badge-status-in-progress";
-    return `<span class="badge ${cls}">${escapeHtml(status || "Not Started")}</span>`;
+    return `<span class="badge ${getStatusBadgeClass(status)}">${escapeHtml(status || "Not Started")}</span>`;
 }
 
 async function loadDashboard() {
@@ -514,7 +538,7 @@ function renderLifecycleItemTrackerTable() {
         row.innerHTML = `
             <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
             <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
-            <td><select name="status" data-status-value="${escapeHtml(item.status)}"></select></td>
+            <td><div class="status-edit"><span class="badge ${getStatusBadgeClass(item.status)}" data-status-preview>${escapeHtml(item.status)}</span><select name="status" data-status-value="${escapeHtml(item.status)}"></select></div></td>
             <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
             <td><input name="cortaveOwner" value="${escapeHtml(item.cortaveOwner)}"></td>
             <td><input name="accountOwner" value="${escapeHtml(item.accountOwner)}"></td>
@@ -532,27 +556,20 @@ function renderLifecycleItemTrackerTable() {
                 select.appendChild(option);
             });
             select.value = select.dataset.statusValue;
+            select.addEventListener("change", async () => {
+                const preview = row.querySelector("[data-status-preview]");
+                if (preview) {
+                    preview.className = `badge ${getStatusBadgeClass(select.value)}`;
+                    preview.textContent = select.value;
+                }
+                await saveLifecycleItemRow(row, row.querySelector("[data-save-plan-item]"));
+            });
         });
         target.appendChild(row);
     });
     target.querySelectorAll("[data-save-plan-item]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const row = button.closest("tr");
-            const payload = {};
-            row.querySelectorAll("input, select, textarea").forEach((field) => {
-                payload[field.name] = field.value;
-            });
-            button.disabled = true;
-            button.textContent = "Saving...";
-            try {
-                await api(`/api/lifecycle-items/${button.dataset.savePlanItem}`, { method: "PUT", body: JSON.stringify(payload) });
-                button.textContent = "Saved";
-                setTimeout(() => { button.disabled = false; button.textContent = "Save"; }, 900);
-            } catch (error) {
-                alert(error.message);
-                button.disabled = false;
-                button.textContent = "Save";
-            }
+            await saveLifecycleItemRow(button.closest("tr"), button);
         });
     });
 }
@@ -1183,10 +1200,16 @@ function debounce(fn, wait) {
 }
 
 function statusBadge(status) {
-    const option = (lifecycle.options.status || []).find((item) => item.value === status);
-    const background = option?.color || "";
-    const style = background ? ` style="background:${escapeHtml(background)}; color:${readableTextColor(background)}"` : "";
-    return `<span class="badge badge-status-${slug(status)}"${style}>${escapeHtml(status || "Unknown")}</span>`;
+    return `<span class="badge ${getStatusBadgeClass(status)}">${escapeHtml(status || "Unknown")}</span>`;
+}
+
+function getStatusBadgeClass(status) {
+    const normalized = String(status || "Not Started").toLowerCase();
+    if (normalized === "completed" || normalized === "live") return "badge-status-completed";
+    if (normalized === "in progress") return "badge-status-in-progress";
+    if (normalized === "on hold") return "badge-status-on-hold";
+    if (normalized === "overdue" || normalized === "qualified out") return "badge-status-not-started";
+    return "badge-status-not-started";
 }
 
 function readableTextColor(hex) {
