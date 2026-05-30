@@ -216,7 +216,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-plan-workspace-next",
+            "asset_version": "20260530-relationship-brief",
         }
 
     @app.route("/")
@@ -382,6 +382,17 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         territory = clean_text(payload.get("territory") if payload.get("territory") is not None else existing["territory"])
         current_stage_override = clean_text(payload.get("currentStageOverride") or payload.get("current_stage_override") or existing["current_stage_override"])
         notes = clean_text(payload.get("notes") if payload.get("notes") is not None else existing["notes"])
+        relationship_fields = {
+            "company_website_url": clean_text(payload.get("companyWebsiteUrl") if payload.get("companyWebsiteUrl") is not None else existing["company_website_url"]),
+            "company_linkedin_url": clean_text(payload.get("companyLinkedinUrl") if payload.get("companyLinkedinUrl") is not None else existing["company_linkedin_url"]),
+            "key_contact_name": clean_text(payload.get("keyContactName") if payload.get("keyContactName") is not None else existing["key_contact_name"]),
+            "key_contact_job_title": clean_text(payload.get("keyContactJobTitle") if payload.get("keyContactJobTitle") is not None else existing["key_contact_job_title"]),
+            "key_contact_email": clean_text(payload.get("keyContactEmail") if payload.get("keyContactEmail") is not None else existing["key_contact_email"]),
+            "key_contact_linkedin_url": clean_text(payload.get("keyContactLinkedinUrl") if payload.get("keyContactLinkedinUrl") is not None else existing["key_contact_linkedin_url"]),
+            "relationship_context": clean_text(payload.get("relationshipContext") if payload.get("relationshipContext") is not None else existing["relationship_context"]),
+            "relationship_detailed_notes": clean_text(payload.get("relationshipDetailedNotes") if payload.get("relationshipDetailedNotes") is not None else existing["relationship_detailed_notes"]),
+            "meeting_brief_notes": clean_text(payload.get("meetingBriefNotes") if payload.get("meetingBriefNotes") is not None else existing["meeting_brief_notes"]),
+        }
         if not account_name or not plan_owner or not kick_off_date:
             db.close()
             return jsonify({"errors": ["Account name, plan owner, and kick-off date are required."]}), 400
@@ -389,10 +400,20 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             """
             UPDATE account_plans
             SET account_name = ?, plan_owner = ?, kick_off_date = ?, target_go_live_date = ?,
-                territory = ?, current_stage_override = ?, notes = ?, updated_at = ?
+                territory = ?, current_stage_override = ?, notes = ?,
+                company_website_url = ?, company_linkedin_url = ?, key_contact_name = ?,
+                key_contact_job_title = ?, key_contact_email = ?, key_contact_linkedin_url = ?,
+                relationship_context = ?, relationship_detailed_notes = ?, meeting_brief_notes = ?,
+                updated_at = ?
             WHERE id = ?
             """,
-            (account_name, plan_owner, kick_off_date, target_go_live_date, territory, current_stage_override, notes, utc_now(), plan_id),
+            (
+                account_name, plan_owner, kick_off_date, target_go_live_date, territory, current_stage_override, notes,
+                relationship_fields["company_website_url"], relationship_fields["company_linkedin_url"], relationship_fields["key_contact_name"],
+                relationship_fields["key_contact_job_title"], relationship_fields["key_contact_email"], relationship_fields["key_contact_linkedin_url"],
+                relationship_fields["relationship_context"], relationship_fields["relationship_detailed_notes"], relationship_fields["meeting_brief_notes"],
+                utc_now(), plan_id,
+            ),
         )
         db.commit()
         db.close()
@@ -1029,6 +1050,15 @@ def init_db(database_path: str) -> None:
             target_go_live_date TEXT,
             territory TEXT,
             current_stage_override TEXT,
+            company_website_url TEXT,
+            company_linkedin_url TEXT,
+            key_contact_name TEXT,
+            key_contact_job_title TEXT,
+            key_contact_email TEXT,
+            key_contact_linkedin_url TEXT,
+            relationship_context TEXT,
+            relationship_detailed_notes TEXT,
+            meeting_brief_notes TEXT,
             notes TEXT,
             lifecycle_template_id INTEGER,
             partner_id INTEGER,
@@ -1522,6 +1552,15 @@ def ensure_account_plan_columns(db: sqlite3.Connection) -> None:
     columns = {
         "territory": "TEXT",
         "current_stage_override": "TEXT",
+        "company_website_url": "TEXT",
+        "company_linkedin_url": "TEXT",
+        "key_contact_name": "TEXT",
+        "key_contact_job_title": "TEXT",
+        "key_contact_email": "TEXT",
+        "key_contact_linkedin_url": "TEXT",
+        "relationship_context": "TEXT",
+        "relationship_detailed_notes": "TEXT",
+        "meeting_brief_notes": "TEXT",
     }
     for name, column_type in columns.items():
         if name not in existing:
@@ -2198,6 +2237,15 @@ def account_plan_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "territory": row["territory"] or "",
         "currentStageOverride": row["current_stage_override"] or "",
         "notes": row["notes"] or "",
+        "companyWebsiteUrl": row["company_website_url"] or "",
+        "companyLinkedinUrl": row["company_linkedin_url"] or "",
+        "keyContactName": row["key_contact_name"] or "",
+        "keyContactJobTitle": row["key_contact_job_title"] or "",
+        "keyContactEmail": row["key_contact_email"] or "",
+        "keyContactLinkedinUrl": row["key_contact_linkedin_url"] or "",
+        "relationshipContext": row["relationship_context"] or "",
+        "relationshipDetailedNotes": row["relationship_detailed_notes"] or "",
+        "meetingBriefNotes": row["meeting_brief_notes"] or "",
         "templateName": row["template_name"] or "",
         "partnerId": row["partner_id"],
         "partnerName": row["partner_name"] or "",

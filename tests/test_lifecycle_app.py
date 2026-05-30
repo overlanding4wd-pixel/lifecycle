@@ -666,6 +666,45 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertIn("data-edit-lifecycle-item", script)
         self.assertIn("data-open-add-lifecycle-item", self.client.get("/plans/1").get_data(as_text=True))
 
+    def test_relationship_brief_fields_persist_on_account_plan(self):
+        plan = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Relationship Brief Plan",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2026-06-01",
+                "targetGoLiveDate": "2026-09-01",
+            },
+        ).get_json()["plan"]
+
+        response = self.client.put(
+            f"/api/account-plans/{plan['id']}",
+            json={
+                "companyWebsiteUrl": "https://example.com",
+                "companyLinkedinUrl": "https://linkedin.com/company/example",
+                "keyContactName": "Jane Doe",
+                "keyContactJobTitle": "VP Partnerships",
+                "keyContactEmail": "jane@example.com",
+                "keyContactLinkedinUrl": "https://linkedin.com/in/janedoe",
+                "relationshipContext": "Existing partner contact",
+                "relationshipDetailedNotes": "Detailed relationship notes",
+                "meetingBriefNotes": "Meeting brief notes",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        refreshed = self.client.get(f"/api/account-plans/{plan['id']}").get_json()["plan"]
+        self.assertEqual(refreshed["companyWebsiteUrl"], "https://example.com")
+        self.assertEqual(refreshed["keyContactName"], "Jane Doe")
+        self.assertEqual(refreshed["relationshipDetailedNotes"], "Detailed relationship notes")
+        self.assertEqual(refreshed["meetingBriefNotes"], "Meeting brief notes")
+
+        page = self.client.get(f"/plans/{plan['id']}")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Relationship Brief", page.data)
+        self.assertNotIn(b"Generate", page.data)
+
 
 if __name__ == "__main__":
     unittest.main()

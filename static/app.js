@@ -120,6 +120,7 @@ async function initAccountPlanDetail() {
     if (!page) return;
     lifecycle.planId = page.dataset.planId;
     document.querySelector("[data-account-plan-detail-form]").addEventListener("submit", saveAccountPlanDetail);
+    document.querySelector("[data-relationship-brief-form]")?.addEventListener("submit", saveRelationshipBrief);
     document.querySelector("[data-add-lifecycle-item-form]")?.addEventListener("submit", addLifecycleItem);
     document.querySelector("[data-open-add-lifecycle-item]")?.addEventListener("click", openAddLifecycleItemModal);
     document.querySelectorAll("[data-close-add-lifecycle-item]").forEach((button) => button.addEventListener("click", closeAddLifecycleItemModal));
@@ -144,6 +145,7 @@ async function loadAccountPlanDetail() {
     form.elements.territory.value = plan.territory || "";
     form.elements.currentStageOverride.value = plan.currentStageOverride || "";
     form.elements.notes.value = plan.notes || "";
+    populateRelationshipBrief(plan);
     renderPlanHeader(plan);
     renderPlanWorkspaceSummary(plan);
     renderNextStepCard(plan);
@@ -163,6 +165,37 @@ function renderPlanHeader(plan) {
         <div><span>Health</span><strong>${healthBadge(plan.healthStatus)}</strong></div>
         <div><span>Target live</span><strong>${escapeHtml(plan.targetGoLiveDate || "-")}</strong></div>
     `;
+}
+
+
+function populateRelationshipBrief(plan) {
+    const form = document.querySelector("[data-relationship-brief-form]");
+    if (!form) return;
+    form.elements.companyWebsiteUrl.value = plan.companyWebsiteUrl || "";
+    form.elements.companyLinkedinUrl.value = plan.companyLinkedinUrl || "";
+    form.elements.keyContactName.value = plan.keyContactName || "";
+    form.elements.keyContactJobTitle.value = plan.keyContactJobTitle || "";
+    form.elements.keyContactEmail.value = plan.keyContactEmail || "";
+    form.elements.keyContactLinkedinUrl.value = plan.keyContactLinkedinUrl || "";
+    form.elements.relationshipContext.value = plan.relationshipContext || "";
+    form.elements.relationshipDetailedNotes.value = plan.relationshipDetailedNotes || "";
+    form.elements.meetingBriefNotes.value = plan.meetingBriefNotes || "";
+}
+
+async function saveRelationshipBrief(event) {
+    event.preventDefault();
+    const errors = document.querySelector("[data-relationship-errors]");
+    const result = document.querySelector("[data-relationship-save-result]");
+    errors.textContent = "";
+    result.textContent = "";
+    const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+        await api(`/api/account-plans/${lifecycle.planId}`, { method: "PUT", body: JSON.stringify(payload) });
+        result.textContent = "Saved.";
+        await loadAccountPlanDetail();
+    } catch (error) {
+        errors.textContent = error.message;
+    }
 }
 
 async function saveAccountPlanDetail(event) {

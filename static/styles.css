@@ -1216,3 +1216,11 @@ textarea {
         width: 100%;
     }
 }
+
+.relationship-brief-card {
+    scroll-margin-top: 18px;
+}
+
+.relationship-brief-form textarea {
+    min-height: 96px;
+}

@@ -49,6 +49,36 @@
         <div data-next-step-card></div>
     </section>
 
+
+    <section class="panel relationship-brief-card">
+        <div class="panel-header">
+            <div>
+                <h2>Relationship Brief</h2>
+                <p>Manual research details for this account. AI generation will be added later.</p>
+            </div>
+        </div>
+        <form class="record-form relationship-brief-form" data-relationship-brief-form>
+            <div class="form-grid">
+                <label>Company website URL<input name="companyWebsiteUrl" type="url" placeholder="https://..."></label>
+                <label>Company LinkedIn URL<input name="companyLinkedinUrl" type="url" placeholder="https://www.linkedin.com/company/..."></label>
+            </div>
+            <div class="form-grid">
+                <label>Key contact name<input name="keyContactName"></label>
+                <label>Key contact job title<input name="keyContactJobTitle"></label>
+                <label>Key contact email<input name="keyContactEmail" type="email"></label>
+                <label>Key contact LinkedIn profile URL<input name="keyContactLinkedinUrl" type="url" placeholder="https://www.linkedin.com/in/..."></label>
+            </div>
+            <label>Existing relationship context<textarea name="relationshipContext" rows="3"></textarea></label>
+            <label>Detailed notes<textarea name="relationshipDetailedNotes" rows="4"></textarea></label>
+            <label>Meeting brief notes<textarea name="meetingBriefNotes" rows="4"></textarea></label>
+            <div class="drawer-actions">
+                <button class="button primary" type="submit">Save Relationship Brief</button>
+                <span class="muted" data-relationship-save-result></span>
+            </div>
+            <div class="form-errors" data-relationship-errors></div>
+        </form>
+    </section>
+
     <section class="panel lifecycle-progress-panel">
         <div class="panel-header">
             <div>
