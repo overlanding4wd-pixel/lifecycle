@@ -216,7 +216,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-create-modal",
+            "asset_version": "20260530-plan-workspace-next",
         }
 
     @app.route("/")
@@ -246,6 +246,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         return render_template("partners.html", page_title="Master Partner Dashboard")
 
     @app.route("/account-plans/<int:plan_id>")
+    @app.route("/plans/<int:plan_id>")
     def account_plan_page(plan_id: int) -> str:
         return render_template("account_plan.html", page_title="Account Plan", plan_id=plan_id)
 

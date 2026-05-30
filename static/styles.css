@@ -1019,3 +1019,142 @@ textarea {
         grid-template-columns: 1fr;
     }
 }
+
+.plan-header-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.plan-header-grid div {
+    background: var(--grey-025);
+    border: 1px solid var(--grey-200);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.plan-header-grid span {
+    color: var(--grey-500);
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.plan-details-editor {
+    border-top: 1px solid var(--grey-200);
+    margin-top: 18px;
+    padding-top: 14px;
+}
+
+.plan-details-editor summary {
+    color: var(--blue-800);
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.next-step-card {
+    background: var(--grey-025);
+    border: 1px solid var(--grey-200);
+    border-radius: 16px;
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+}
+
+.next-step-card h3 {
+    color: var(--blue-900);
+    font-size: 1.45rem;
+    margin: 0;
+}
+
+.next-step-card dl {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+}
+
+.next-step-card dt {
+    color: var(--grey-500);
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.next-step-card dd {
+    margin: 4px 0 0;
+}
+
+.progress-track {
+    background: var(--grey-100);
+    border-radius: 999px;
+    height: 14px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: var(--green-600);
+    height: 100%;
+    transition: width 0.2s ease;
+}
+
+.clean-lifecycle-table {
+    min-width: 1450px;
+}
+
+.clean-lifecycle-table td {
+    vertical-align: middle;
+}
+
+.clean-lifecycle-table input,
+.clean-lifecycle-table select,
+.clean-lifecycle-table textarea {
+    min-width: 120px;
+}
+
+.activity-cell {
+    min-width: 320px;
+}
+
+.row-actions {
+    opacity: 0.35;
+    white-space: nowrap;
+}
+
+.clean-lifecycle-table tr:hover .row-actions,
+.highlight-row .row-actions {
+    opacity: 1;
+}
+
+.highlight-row td {
+    background: var(--blue-050);
+}
+
+.plan-notes-display {
+    background: var(--grey-025);
+    border: 1px solid var(--grey-200);
+    border-radius: 12px;
+    color: var(--grey-700);
+    padding: 14px;
+    white-space: pre-wrap;
+}
+
+.full-span {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 1180px) {
+    .plan-header-grid,
+    .next-step-card dl {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .plan-header-grid,
+    .next-step-card dl {
+        grid-template-columns: 1fr;
+    }
+}

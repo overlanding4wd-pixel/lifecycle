@@ -420,6 +420,10 @@ class LifecycleAppTest(unittest.TestCase):
         page_response = self.client.get(f"/account-plans/{plan_id}")
         self.assertEqual(page_response.status_code, 200)
         self.assertIn(b"Lifecycle Items", page_response.data)
+        self.assertIn(b"Next Step", page_response.data)
+        alias_response = self.client.get(f"/plans/{plan_id}")
+        self.assertEqual(alias_response.status_code, 200)
+        self.assertIn(b"data-next-step-card", alias_response.data)
 
         update_response = self.client.put(
             f"/api/account-plans/{plan_id}",
@@ -637,8 +641,8 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertIn("badge-status-completed", script)
         self.assertIn("badge-status-off-track", script)
         self.assertIn("badge-status-good", script)
-        self.assertIn("data-status-preview", script)
-        self.assertIn("select.hidden = true", script)
+        self.assertIn("renderLifecycleItemReadRow", script)
+        self.assertIn("data-edit-lifecycle-item", script)
 
     def test_account_plan_requires_target_live_date(self):
         response = self.client.post(
@@ -652,6 +656,15 @@ class LifecycleAppTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("Target live date is required.", response.get_json()["errors"])
+
+    def test_plan_workspace_uses_clean_rows_and_post_create_navigation(self):
+        template = self.client.get("/").get_data(as_text=True)
+        self.assertIn("data-create-plan-panel", template)
+        script = Path("static/app.js").read_text()
+        self.assertIn("window.location.href = `/plans/${response.plan.id}#next-step`;", script)
+        self.assertIn("renderLifecycleItemReadRow", script)
+        self.assertIn("data-edit-lifecycle-item", script)
+        self.assertIn("data-open-add-lifecycle-item", self.client.get("/plans/1").get_data(as_text=True))
 
 
 if __name__ == "__main__":

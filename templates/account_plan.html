@@ -2,113 +2,105 @@
 
 {% block content %}
 <section data-page="account-plan" data-plan-id="{{ plan_id }}">
-    <div class="panel">
+    <section class="panel plan-header-panel">
         <div class="panel-header">
             <div>
                 <p class="eyebrow">Account Plan</p>
                 <h2 data-plan-title>Loading plan...</h2>
-                <p data-plan-subtitle>View and edit the Account Plan and its Lifecycle Items.</p>
+                <p data-plan-subtitle>Plan workspace for lifecycle activation.</p>
             </div>
             <a class="button secondary" href="{{ url_for('dashboard') }}">Back to Master Dashboard</a>
         </div>
-
-        <form class="record-form account-plan-detail-form" data-account-plan-detail-form>
-            <div class="form-grid">
-                <label>
-                    Account name
-                    <input name="accountName" required>
-                </label>
-                <label>
-                    Account type
-                    <input name="accountType" readonly>
-                </label>
-            </div>
-            <div class="form-grid">
-                <label>
-                    Plan owner
-                    <input name="planOwner" required>
-                </label>
-                <label>
-                    Territory
-                    <input name="territory">
-                </label>
-                <label>
-                    Current stage override
-                    <select name="currentStageOverride">
-                        <option value="">Calculate from items</option>
-                        <option value="I0">I0</option>
-                        <option value="I20">I20</option>
-                        <option value="I50">I50</option>
-                        <option value="D0">D0</option>
-                        <option value="D20">D20</option>
-                        <option value="Live">Live</option>
-                        <option value="Qualified Out">Qualified Out</option>
-                    </select>
-                </label>
-                <label>
-                    Kick-off date
-                    <input type="date" name="kickOffDate" required>
-                </label>
-                <label>
-                    Target live date
-                    <input type="date" name="targetGoLiveDate">
-                </label>
-            </div>
-            <label>
-                Notes
-                <textarea name="notes" rows="3"></textarea>
-            </label>
-            <div class="drawer-actions">
-                <button class="button primary" type="submit">Save Account Plan</button>
-                <span class="muted" data-plan-save-result></span>
-            </div>
-            <div class="form-errors" data-plan-errors></div>
-        </form>
-    </div>
+        <div class="plan-header-grid" data-plan-header></div>
+        <details class="plan-details-editor">
+            <summary>Edit plan details and notes</summary>
+            <form class="record-form account-plan-detail-form" data-account-plan-detail-form>
+                <div class="form-grid">
+                    <label>Account name<input name="accountName" required></label>
+                    <label>Account type<input name="accountType" readonly></label>
+                </div>
+                <div class="form-grid">
+                    <label>Plan owner<input name="planOwner" required></label>
+                    <label>Territory<input name="territory"></label>
+                    <label>Current stage override<select name="currentStageOverride"><option value="">Calculate from items</option><option value="I0">I0</option><option value="I20">I20</option><option value="I50">I50</option><option value="D0">D0</option><option value="D20">D20</option><option value="Live">Live</option><option value="Qualified Out">Qualified Out</option></select></label>
+                    <label>Kick-off date<input type="date" name="kickOffDate" required></label>
+                    <label>Target live date<input type="date" name="targetGoLiveDate" required></label>
+                </div>
+                <label>Detailed Notes<textarea name="notes" rows="4"></textarea></label>
+                <div class="drawer-actions">
+                    <button class="button primary" type="submit">Save Account Plan</button>
+                    <span class="muted" data-plan-save-result></span>
+                </div>
+                <div class="form-errors" data-plan-errors></div>
+            </form>
+        </details>
+    </section>
 
     <div class="card-grid metric-grid plan-workspace-summary" data-plan-workspace-summary></div>
 
-    <section class="panel">
+    <section class="panel next-step-panel" id="next-step">
+        <div class="panel-header">
+            <div>
+                <h2>Next Step</h2>
+                <p>The next incomplete lifecycle item for this plan.</p>
+            </div>
+            <a class="button ghost" href="#lifecycle-items">View All Lifecycle Items</a>
+        </div>
+        <div data-next-step-card></div>
+    </section>
+
+    <section class="panel lifecycle-progress-panel">
+        <div class="panel-header">
+            <div>
+                <h2>Lifecycle Progress</h2>
+                <p data-progress-label>0 of 0 completed</p>
+            </div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" data-progress-fill></div></div>
+    </section>
+
+    <section class="panel" id="lifecycle-items">
         <div class="panel-header">
             <div>
                 <h2>Lifecycle Items</h2>
-                <p>These actions were copied from the plan's Lifecycle Template and can be edited for this account.</p>
+                <p>Clean read-only list. Edit a row only when the plan needs to differ from the default process.</p>
             </div>
+            <button class="button secondary" data-open-add-lifecycle-item type="button">Add Lifecycle Item</button>
         </div>
-        <form class="filters add-lifecycle-item-form" data-add-lifecycle-item-form>
-            <label>Stage<input name="stage" placeholder="I20 / D20"></label>
-            <label>Activity<input name="activity" required placeholder="New task"></label>
-            <label>Status<select name="status"><option>Not Started</option><option>In Progress</option><option>On Hold</option><option>Completed</option></select></label>
-            <label>Owner<input name="responsibleParty"></label>
-            <label>Start date<input type="date" name="actualStartDate"></label>
-            <label>Due date<input type="date" name="dueDate"></label>
-            <button class="button secondary" type="submit">Add Lifecycle Item</button>
-        </form>
         <div class="table-wrap">
-            <table class="data-table lifecycle-item-table">
+            <table class="data-table lifecycle-item-table clean-lifecycle-table">
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Stage</th>
-                        <th>Activity</th>
-                        <th>Status</th>
-                        <th>Responsible</th>
-                        <th>Start offset</th>
-                        <th>Actual start</th>
-                        <th>Due offset</th>
-                        <th>Due date</th>
-                        <th>Completed date</th>
-                        <th>cortave Owner</th>
-                        <th>Account Owner</th>
-                        <th>Next Action</th>
-                        <th>Link</th>
-                        <th>Notes</th>
-                        <th></th>
+                        <th>#</th><th>Stage</th><th>Activity</th><th>Status</th><th>Owner</th><th>Start</th><th>Due</th><th>Completed</th><th>Next Action</th><th>Link</th><th>Notes</th><th></th>
                     </tr>
                 </thead>
                 <tbody data-lifecycle-item-table></tbody>
             </table>
         </div>
     </section>
+
+    <section class="panel">
+        <div class="panel-header"><div><h2>Detailed Notes</h2><p>Plan-level notes and context.</p></div></div>
+        <div class="plan-notes-display" data-plan-notes-display></div>
+    </section>
+
+    <aside class="modal" data-add-lifecycle-item-modal aria-hidden="true" hidden>
+        <div class="modal-backdrop" data-close-add-lifecycle-item></div>
+        <div class="modal-panel create-plan-modal">
+            <div class="panel-header"><div><h2>Add Lifecycle Item</h2><p>Add a custom step to this plan.</p></div></div>
+            <form class="filters account-plan-form" data-add-lifecycle-item-form>
+                <label>Stage<input name="stage" placeholder="I20 / D20"></label>
+                <label>Activity<input name="activity" required placeholder="New task"></label>
+                <label>Status<select name="status"><option>Not Started</option><option>In Progress</option><option>On Hold</option><option>Completed</option></select></label>
+                <label>Owner<input name="responsibleParty"></label>
+                <label>Start date<input type="date" name="actualStartDate"></label>
+                <label>Due date<input type="date" name="dueDate"></label>
+                <label>Next action<input name="nextAction"></label>
+                <label>Link<input name="link"></label>
+                <label class="full-span">Notes<textarea name="notes" rows="3"></textarea></label>
+                <div class="modal-actions"><button class="button ghost" type="button" data-close-add-lifecycle-item>Cancel</button><button class="button primary" type="submit">Add Lifecycle Item</button></div>
+            </form>
+        </div>
+    </aside>
 </section>
 {% endblock %}

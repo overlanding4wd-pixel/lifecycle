@@ -121,12 +121,18 @@ async function initAccountPlanDetail() {
     lifecycle.planId = page.dataset.planId;
     document.querySelector("[data-account-plan-detail-form]").addEventListener("submit", saveAccountPlanDetail);
     document.querySelector("[data-add-lifecycle-item-form]")?.addEventListener("submit", addLifecycleItem);
+    document.querySelector("[data-open-add-lifecycle-item]")?.addEventListener("click", openAddLifecycleItemModal);
+    document.querySelectorAll("[data-close-add-lifecycle-item]").forEach((button) => button.addEventListener("click", closeAddLifecycleItemModal));
     await loadAccountPlanDetail();
+    if (window.location.hash === "#next-step") {
+        document.querySelector("#next-step")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 }
 
 async function loadAccountPlanDetail() {
     const data = await api(`/api/account-plans/${lifecycle.planId}`);
     const plan = data.plan;
+    lifecycle.currentPlan = plan;
     document.querySelector("[data-plan-title]").textContent = plan.accountName;
     document.querySelector("[data-plan-subtitle]").textContent = `${plan.accountType} · ${plan.templateName} · ${plan.completedItems}/${plan.totalItems} complete`;
     const form = document.querySelector("[data-account-plan-detail-form]");
@@ -138,8 +144,25 @@ async function loadAccountPlanDetail() {
     form.elements.territory.value = plan.territory || "";
     form.elements.currentStageOverride.value = plan.currentStageOverride || "";
     form.elements.notes.value = plan.notes || "";
+    renderPlanHeader(plan);
     renderPlanWorkspaceSummary(plan);
+    renderNextStepCard(plan);
+    renderLifecycleProgress(plan);
     renderLifecycleItems(plan.items || []);
+    document.querySelector("[data-plan-notes-display]").textContent = plan.notes || "No detailed notes yet.";
+}
+
+function renderPlanHeader(plan) {
+    const target = document.querySelector("[data-plan-header]");
+    if (!target) return;
+    target.innerHTML = `
+        <div><span>Type</span><strong>${escapeHtml(plan.accountType)}</strong></div>
+        <div><span>Owner</span><strong>${escapeHtml(plan.planOwner)}</strong></div>
+        <div><span>Current stage</span><strong><span class="badge stage-badge">${escapeHtml(plan.currentStage || "-")}</span></strong></div>
+        <div><span>Status</span><strong>${statusBadge(plan.planStatus)}</strong></div>
+        <div><span>Health</span><strong>${healthBadge(plan.healthStatus)}</strong></div>
+        <div><span>Target live</span><strong>${escapeHtml(plan.targetGoLiveDate || "-")}</strong></div>
+    `;
 }
 
 async function saveAccountPlanDetail(event) {
@@ -160,60 +183,9 @@ async function saveAccountPlanDetail(event) {
 
 function renderLifecycleItems(items) {
     const target = document.querySelector("[data-lifecycle-item-table]");
-    target.innerHTML = items.map((item) => `
-        <tr class="${item.isOverdue ? "overdue" : ""}" data-lifecycle-item-row="${item.id}">
-            <td>${item.sortOrder}</td>
-            <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
-            <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
-            <td><div class="status-edit"><button class="badge ${getStatusBadgeClass(item.status)}" type="button" data-status-preview>${escapeHtml(item.status)}</button><select name="status" data-status-value="${escapeHtml(item.status)}" hidden></select></div></td>
-            <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
-            <td>${item.startDayOffset ?? ""}</td>
-            <td><input type="date" name="actualStartDate" value="${escapeHtml(item.actualStartDate)}"></td>
-            <td>${item.targetDueDayOffset ?? ""}</td>
-            <td><input type="date" name="dueDate" value="${escapeHtml(item.dueDate)}"></td>
-            <td><input type="date" name="completedDate" value="${escapeHtml(item.completedDate)}"></td>
-            <td><input name="cortaveOwner" value="${escapeHtml(item.cortaveOwner)}"></td>
-            <td><input name="accountOwner" value="${escapeHtml(item.accountOwner)}"></td>
-            <td><input name="nextAction" value="${escapeHtml(item.nextAction)}"></td>
-            <td><input name="link" value="${escapeHtml(item.link)}"></td>
-            <td><textarea name="notes" rows="2">${escapeHtml(item.notes)}</textarea></td>
-            <td><button class="button secondary small" data-save-lifecycle-item="${item.id}">Save</button><button class="button danger small" data-delete-lifecycle-item="${item.id}">Delete</button></td>
-        </tr>
-    `).join("") || `<tr><td colspan="16">No Lifecycle Items found for this Account Plan.</td></tr>`;
-    target.querySelectorAll("select[name='status']").forEach((select) => {
-        (lifecycle.options.status || []).forEach((status) => {
-            const option = document.createElement("option");
-            option.value = status.value;
-            option.textContent = status.label || status.value;
-            select.appendChild(option);
-        });
-        select.value = select.dataset.statusValue;
-        select.addEventListener("change", async () => {
-            const row = select.closest("[data-lifecycle-item-row]") || select.closest("tr");
-            const preview = row?.querySelector("[data-status-preview]");
-            if (preview) {
-                preview.className = `badge ${getStatusBadgeClass(select.value)}`;
-                preview.textContent = select.value;
-            }
-            const button = row?.querySelector("[data-save-lifecycle-item], [data-save-plan-item]");
-            if (row && button) await saveLifecycleItemRow(row, button);
-            select.hidden = true;
-            if (preview) preview.hidden = false;
-        });
-    });
-    target.querySelectorAll("[data-status-preview]").forEach((badge) => {
-        badge.addEventListener("click", () => {
-            const wrapper = badge.closest(".status-edit");
-            const select = wrapper.querySelector("select[name='status']");
-            badge.hidden = true;
-            select.hidden = false;
-            select.focus();
-        });
-    });
-    target.querySelectorAll("[data-save-lifecycle-item]").forEach((button) => {
-        button.addEventListener("click", async () => {
-            await saveLifecycleItemRow(button.closest("[data-lifecycle-item-row]"), button);
-        });
+    target.innerHTML = items.map((item) => renderLifecycleItemReadRow(item)).join("") || `<tr><td colspan="12">No Lifecycle Items found for this Account Plan.</td></tr>`;
+    target.querySelectorAll("[data-edit-lifecycle-item]").forEach((button) => {
+        button.addEventListener("click", () => renderLifecycleItemEditRow(button.dataset.editLifecycleItem));
     });
     target.querySelectorAll("[data-delete-lifecycle-item]").forEach((button) => {
         button.addEventListener("click", async () => {
@@ -224,7 +196,58 @@ function renderLifecycleItems(items) {
     });
 }
 
+function renderLifecycleItemReadRow(item) {
+    const notes = item.notes || "";
+    return `
+        <tr class="${item.isOverdue ? "overdue" : ""}" data-lifecycle-item-row="${item.id}">
+            <td>${item.sortOrder}</td>
+            <td><span class="badge stage-badge">${escapeHtml(item.stage)}</span></td>
+            <td class="activity-cell"><strong>${escapeHtml(item.activity)}</strong></td>
+            <td>${statusBadge(item.status)}</td>
+            <td>${escapeHtml(item.responsibleParty || item.cortaveOwner || item.accountOwner || "-")}</td>
+            <td>${escapeHtml(item.actualStartDate || "-")}</td>
+            <td>${escapeHtml(item.dueDate || "-")}</td>
+            <td>${escapeHtml(item.completedDate || "-")}</td>
+            <td>${escapeHtml(item.nextAction || "-")}</td>
+            <td>${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noreferrer">Open</a>` : "-"}</td>
+            <td title="${escapeHtml(notes)}">${escapeHtml(truncateText(notes || "-", 80))}</td>
+            <td class="row-actions"><button class="button ghost small" data-edit-lifecycle-item="${item.id}">Edit</button><button class="button danger small" data-delete-lifecycle-item="${item.id}">Delete</button></td>
+        </tr>
+    `;
+}
 
+function renderLifecycleItemEditRow(itemId) {
+    const item = (lifecycle.currentPlan?.items || []).find((candidate) => String(candidate.id) === String(itemId));
+    if (!item) return;
+    const row = document.querySelector(`[data-lifecycle-item-row="${itemId}"]`);
+    row.innerHTML = `
+        <td>${item.sortOrder}</td>
+        <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
+        <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
+        <td><select name="status" data-status-value="${escapeHtml(item.status)}"></select></td>
+        <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
+        <td><input type="date" name="actualStartDate" value="${escapeHtml(item.actualStartDate)}"></td>
+        <td><input type="date" name="dueDate" value="${escapeHtml(item.dueDate)}"></td>
+        <td><input type="date" name="completedDate" value="${escapeHtml(item.completedDate)}"></td>
+        <td><input name="nextAction" value="${escapeHtml(item.nextAction)}"></td>
+        <td><input name="link" value="${escapeHtml(item.link)}"></td>
+        <td><textarea name="notes" rows="2">${escapeHtml(item.notes)}</textarea></td>
+        <td class="row-actions"><button class="button secondary small" data-save-lifecycle-item="${item.id}">Save</button><button class="button ghost small" data-cancel-edit-lifecycle-item>Cancel</button></td>
+    `;
+    populateStatusSelect(row.querySelector("select[name='status']"), item.status);
+    row.querySelector("[data-save-lifecycle-item]").addEventListener("click", async () => saveLifecycleItemRow(row, row.querySelector("[data-save-lifecycle-item]")));
+    row.querySelector("[data-cancel-edit-lifecycle-item]").addEventListener("click", () => renderLifecycleItems(lifecycle.currentPlan.items || []));
+}
+
+function populateStatusSelect(select, value) {
+    (lifecycle.options.status || []).forEach((status) => {
+        const option = document.createElement("option");
+        option.value = status.value;
+        option.textContent = status.label || status.value;
+        select.appendChild(option);
+    });
+    select.value = value;
+}
 
 async function saveLifecycleItemRow(row, button) {
     if (!row || !button) return;
@@ -236,18 +259,8 @@ async function saveLifecycleItemRow(row, button) {
     button.disabled = true;
     button.textContent = "Saving...";
     try {
-        const response = await api(`/api/lifecycle-items/${itemId}`, { method: "PUT", body: JSON.stringify(payload) });
-        const preview = row.querySelector("[data-status-preview]");
-        if (preview && response.item?.status) {
-            preview.className = `badge ${getStatusBadgeClass(response.item.status)}`;
-            preview.textContent = response.item.status;
-        }
-        button.textContent = "Saved";
-        if (document.querySelector("[data-page='account-plan']")) {
-            await loadAccountPlanDetail();
-        } else if (lifecycle.selectedPlanId) {
-            await loadPlanLifecycleItems();
-        }
+        await api(`/api/lifecycle-items/${itemId}`, { method: "PUT", body: JSON.stringify(payload) });
+        await loadAccountPlanDetail();
     } catch (error) {
         alert(error.message);
         button.textContent = "Save";
@@ -259,14 +272,63 @@ function renderPlanWorkspaceSummary(plan) {
     const target = document.querySelector("[data-plan-workspace-summary]");
     if (!target) return;
     target.innerHTML = `
-        <div class="metric-card"><span>Current Stage</span><strong>${escapeHtml(plan.currentStage || "-")}</strong></div>
-        <div class="metric-card"><span>Plan Status</span><strong>${escapeHtml(plan.planStatus || "-")}</strong></div>
-        <div class="metric-card"><span>Plan Health</span><strong>${healthBadge(plan.healthStatus || "On Track")}</strong></div>
         <div class="metric-card"><span>Completed</span><strong>${plan.completedItems}/${plan.totalItems}</strong></div>
         <div class="metric-card"><span>Open Items</span><strong>${plan.openItems ?? Math.max((plan.totalItems || 0) - (plan.completedItems || 0), 0)}</strong></div>
         <div class="metric-card"><span>Overdue Items</span><strong>${plan.overdueItems || 0}</strong></div>
-        <div class="metric-card"><span>Next Step</span><strong>${escapeHtml(plan.nextStep || "-")}</strong></div>
+        <div class="metric-card"><span>Next Due Date</span><strong>${escapeHtml(plan.nextDueDate || "-")}</strong></div>
     `;
+}
+
+function renderNextStepCard(plan) {
+    const target = document.querySelector("[data-next-step-card]");
+    if (!target) return;
+    const item = (plan.items || []).find((candidate) => candidate.activity === plan.nextStep && candidate.dueDate === plan.nextDueDate) || (plan.items || []).find((candidate) => candidate.status !== "Completed");
+    if (!item || !plan.nextStep) {
+        target.innerHTML = `<p class="empty-state">No active next step. This plan may be complete, live, or qualified out.</p>`;
+        return;
+    }
+    target.innerHTML = `
+        <article class="next-step-card ${item.isOverdue ? "overdue" : ""}" data-next-step-item="${item.id}">
+            <div>
+                <span class="badge stage-badge">${escapeHtml(item.stage)}</span>
+                ${statusBadge(item.status)}
+            </div>
+            <h3>${escapeHtml(item.activity)}</h3>
+            <dl>
+                <div><dt>Owner</dt><dd>${escapeHtml(item.responsibleParty || item.cortaveOwner || item.accountOwner || "-")}</dd></div>
+                <div><dt>Due date</dt><dd>${escapeHtml(item.dueDate || "-")}</dd></div>
+                <div><dt>Notes</dt><dd>${escapeHtml(item.notes || "-")}</dd></div>
+            </dl>
+            <div class="drawer-actions"><button class="button primary" data-update-next-step="${item.id}">Update Step</button><a class="button ghost" href="#lifecycle-items">View All Lifecycle Items</a></div>
+        </article>
+    `;
+    target.querySelector("[data-update-next-step]").addEventListener("click", () => {
+        document.querySelector("#lifecycle-items")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        renderLifecycleItemEditRow(item.id);
+        setTimeout(() => document.querySelector(`[data-lifecycle-item-row="${item.id}"]`)?.classList.add("highlight-row"), 50);
+    });
+}
+
+function renderLifecycleProgress(plan) {
+    const total = plan.totalItems || 0;
+    const completed = plan.completedItems || 0;
+    const percent = total ? Math.round((completed / total) * 100) : 0;
+    document.querySelector("[data-progress-label]").textContent = `${completed} of ${total} completed (${percent}%)`;
+    document.querySelector("[data-progress-fill]").style.width = `${percent}%`;
+}
+
+function openAddLifecycleItemModal() {
+    const modal = document.querySelector("[data-add-lifecycle-item-modal]");
+    modal.hidden = false;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+}
+
+function closeAddLifecycleItemModal() {
+    const modal = document.querySelector("[data-add-lifecycle-item-modal]");
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    modal.hidden = true;
 }
 
 async function addLifecycleItem(event) {
@@ -275,7 +337,13 @@ async function addLifecycleItem(event) {
     const payload = Object.fromEntries(new FormData(form).entries());
     await api(`/api/account-plans/${lifecycle.planId}/items`, { method: "POST", body: JSON.stringify(payload) });
     form.reset();
+    closeAddLifecycleItemModal();
     await loadAccountPlanDetail();
+}
+
+function truncateText(value, length) {
+    const text = String(value || "");
+    return text.length > length ? `${text.slice(0, length)}...` : text;
 }
 
 async function createAccountPlan(event) {
@@ -297,10 +365,7 @@ async function createAccountPlan(event) {
         closeCreatePlanPanel();
         await loadAccountPlans();
         await loadDashboard();
-        if (result) {
-            const itemCount = response.plan?.items?.length || 0;
-            result.innerHTML = `<strong>Created ${escapeHtml(response.plan.accountName)}.</strong> ${itemCount} lifecycle actions were generated from the ${escapeHtml(response.plan.templateName)} template. <a class="button secondary small" href="/account-plans/${response.plan.id}">Open Plan</a>`;
-        }
+        window.location.href = `/plans/${response.plan.id}#next-step`;
     } catch (error) {
         errors.textContent = error.message;
     } finally {
@@ -326,7 +391,7 @@ async function loadAccountPlans() {
     renderPlansNeedingAttention(data.plans || []);
     table.innerHTML = data.plans.length ? data.plans.map((plan) => `
         <tr>
-            <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a></td>
+            <td><a class="link-button" href="/plans/${plan.id}">${escapeHtml(plan.accountName)}</a></td>
             <td>${accountTypeBadge(plan.accountType)}</td>
             <td>${escapeHtml(plan.planOwner)}</td>
             <td><span class="badge stage-badge">${escapeHtml(plan.currentStage || "-")}</span></td>
@@ -338,7 +403,7 @@ async function loadAccountPlans() {
             <td>${plan.daysOverdue || 0}</td>
             <td>${escapeHtml(plan.targetGoLiveDate || "-")}</td>
             <td>${formatDateTime(plan.updatedAt)}</td>
-            <td><a class="button secondary small" href="/account-plans/${plan.id}">Open Plan</a></td>
+            <td><a class="button secondary small" href="/plans/${plan.id}">Open Plan</a></td>
         </tr>
     `).join("") : emptyPlansRow();
 }
@@ -357,7 +422,7 @@ function renderPlansNeedingAttention(plans) {
         return plan.daysOverdue > 0 || plan.planStatus === "On Hold" || plan.healthStatus === "Blocked" || !plan.nextStepOwner || (targetLive && targetLive <= soon && !plan.isLive);
     }).slice(0, 8);
     target.innerHTML = attention.length ? attention.map((plan) => `
-        <a class="attention-card" href="/account-plans/${plan.id}">
+        <a class="attention-card" href="/plans/${plan.id}">
             <strong>${escapeHtml(plan.accountName)}</strong>
             <span>${accountTypeBadge(plan.accountType)} ${healthBadge(plan.healthStatus)}</span>
             <small>${escapeHtml(plan.nextStep || "No next step")} · ${escapeHtml(plan.nextStepOwner || "Missing owner")}</small>
