@@ -200,7 +200,7 @@ async function loadAccountPlans() {
     renderAccountPlanMetrics(data.summary || {});
     table.innerHTML = data.plans.length ? data.plans.map((plan) => `
         <tr class="${plan.isAtRisk ? "overdue" : ""}">
-            <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a><br><span class="muted">${escapeHtml(plan.notes || "")}</span></td>
+            <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a><br><a class="button ghost small" href="${plan.accountType === "Innovator" ? "/trackers/I20" : "/trackers/D20"}?planId=${plan.id}">Open Journey</a><br><span class="muted">${escapeHtml(plan.notes || "")}</span></td>
             <td>${accountTypeBadge(plan.accountType)}</td>
             <td>${escapeHtml(plan.planOwner)}</td>
             <td>${escapeHtml(plan.templateName)}</td>
@@ -316,6 +316,7 @@ function renderRecentTable(records) {
 function initTracker() {
     const page = document.querySelector("[data-page='tracker']");
     lifecycle.trackerType = page.dataset.trackerType;
+    lifecycle.selectedPlanId = new URLSearchParams(window.location.search).get("planId") || "";
     const filterForm = document.querySelector("[data-record-filters]");
     applyUrlFilters(filterForm);
     filterForm.addEventListener("submit", (event) => {
@@ -367,10 +368,107 @@ function currentFilterParams() {
 }
 
 async function loadRecords() {
-    const params = currentFilterParams();
-    const data = await api(`/api/records?${params.toString()}`);
-    lifecycle.records = data.records;
-    renderRecordTable();
+    if (lifecycle.selectedPlanId) {
+        await loadPlanLifecycleItems();
+        return;
+    }
+    lifecycle.records = [];
+    renderPlanSelectionEmptyState();
+}
+
+async function loadPlanLifecycleItems() {
+    const planData = await api(`/api/account-plans/${lifecycle.selectedPlanId}`);
+    const expectedType = lifecycle.trackerType === "I20" ? "Innovator" : "Direct Customer";
+    if (planData.plan.accountType !== expectedType) {
+        lifecycle.records = [];
+        renderPlanSelectionEmptyState(`This page shows ${expectedType} plans. The selected plan is ${planData.plan.accountType}.`);
+        return;
+    }
+    lifecycle.selectedPlan = planData.plan;
+    lifecycle.records = applyLifecycleItemFilters(planData.plan.items || []);
+    renderLifecycleItemTrackerTable();
+}
+
+function applyLifecycleItemFilters(items) {
+    const form = document.querySelector("[data-record-filters]");
+    const data = Object.fromEntries(new FormData(form).entries());
+    return items.filter((item) => {
+        const search = (data.search || "").toLowerCase();
+        if (search && !`${item.activity} ${item.responsibleParty} ${item.notes}`.toLowerCase().includes(search)) return false;
+        if (data.status && item.status !== data.status) return false;
+        if (data.stage && item.stage !== data.stage) return false;
+        if (data.owner && item.responsibleParty !== data.owner && item.cortaveOwner !== data.owner && item.accountOwner !== data.owner) return false;
+        if (data.dueAfter && item.dueDate < data.dueAfter) return false;
+        if (data.dueBefore && item.dueDate > data.dueBefore) return false;
+        if (data.overdue && !item.isOverdue) return false;
+        return true;
+    });
+}
+
+function renderPlanSelectionEmptyState(message) {
+    const target = document.querySelector("[data-record-table]");
+    const empty = document.querySelector("[data-empty-records]");
+    target.innerHTML = "";
+    empty.hidden = false;
+    empty.textContent = message || (lifecycle.trackerType === "I20"
+        ? "Select or create an Innovator Partner Plan from the Master Partner Dashboard to view I20 tracker records."
+        : "Select or create a Direct Customer Account Plan from the Master Partner Dashboard to view D20 tracker records.");
+}
+
+
+function renderLifecycleItemTrackerTable() {
+    const target = document.querySelector("[data-record-table]");
+    const empty = document.querySelector("[data-empty-records]");
+    target.innerHTML = "";
+    empty.hidden = lifecycle.records.length > 0;
+    empty.textContent = lifecycle.records.length ? "" : "No lifecycle items match the current filters for this Account Plan.";
+    lifecycle.records.forEach((item) => {
+        const row = document.createElement("tr");
+        row.className = item.isOverdue ? "overdue" : "";
+        row.innerHTML = `
+            <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
+            <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
+            <td><select name="status" data-status-value="${escapeHtml(item.status)}"></select></td>
+            <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
+            <td><input name="cortaveOwner" value="${escapeHtml(item.cortaveOwner)}"></td>
+            <td><input name="accountOwner" value="${escapeHtml(item.accountOwner)}"></td>
+            <td>${escapeHtml(lifecycle.selectedPlan?.accountName || "-")}</td>
+            <td><input type="date" name="dueDate" value="${escapeHtml(item.dueDate)}"></td>
+            <td><input name="link" value="${escapeHtml(item.link)}" placeholder="https://..."></td>
+            <td>${formatDateTime(item.updatedAt)}</td>
+            <td class="right"><button class="button secondary small" data-save-plan-item="${item.id}">Save</button></td>
+        `;
+        row.querySelectorAll("select[name='status']").forEach((select) => {
+            (lifecycle.options.status || []).forEach((status) => {
+                const option = document.createElement("option");
+                option.value = status.value;
+                option.textContent = status.label || status.value;
+                select.appendChild(option);
+            });
+            select.value = select.dataset.statusValue;
+        });
+        target.appendChild(row);
+    });
+    target.querySelectorAll("[data-save-plan-item]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const row = button.closest("tr");
+            const payload = {};
+            row.querySelectorAll("input, select, textarea").forEach((field) => {
+                payload[field.name] = field.value;
+            });
+            button.disabled = true;
+            button.textContent = "Saving...";
+            try {
+                await api(`/api/lifecycle-items/${button.dataset.savePlanItem}`, { method: "PUT", body: JSON.stringify(payload) });
+                button.textContent = "Saved";
+                setTimeout(() => { button.disabled = false; button.textContent = "Save"; }, 900);
+            } catch (error) {
+                alert(error.message);
+                button.disabled = false;
+                button.textContent = "Save";
+            }
+        });
+    });
 }
 
 function renderRecordTable() {

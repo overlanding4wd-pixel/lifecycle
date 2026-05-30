@@ -215,19 +215,20 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-account-plan-fix",
+            "asset_version": "20260530-plan-scoped-tracker",
         }
 
     @app.route("/")
     def dashboard() -> str:
-        return render_template("dashboard.html", page_title="Master Dashboard")
+        return render_template("dashboard.html", page_title="Master Partner Dashboard")
 
     @app.route("/trackers/<tracker_type>")
     def tracker_page(tracker_type: str) -> str:
         tracker_type = tracker_type.upper()
         if tracker_type not in TRACKER_TYPES:
             return redirect(url_for("dashboard"))
-        return render_template("tracker.html", page_title=f"{tracker_type} Tracker", tracker_type=tracker_type)
+        page_name = "Innovator Journey" if tracker_type == "I20" else "Direct Customer Journey"
+        return render_template("tracker.html", page_title=page_name, tracker_type=tracker_type)
 
     @app.route("/settings")
     @role_required("admin")
