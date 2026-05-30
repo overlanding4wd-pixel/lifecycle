@@ -216,7 +216,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def inject_user() -> dict[str, Any]:
         return {
             "current_user": session.get("user", {"name": "Lifecycle Admin", "role": "admin"}),
-            "asset_version": "20260530-health-na",
+            "asset_version": "20260530-create-modal",
         }
 
     @app.route("/")
@@ -2056,6 +2056,8 @@ def validate_account_plan_payload(payload: dict[str, Any]) -> tuple[dict[str, An
         errors.append("Plan owner is required.")
     if not plan["kick_off_date"]:
         errors.append("Kick-off date is required.")
+    if not plan["target_go_live_date"]:
+        errors.append("Target live date is required.")
     return plan, errors
 
 
@@ -2090,6 +2092,11 @@ def create_account_plan(database_path: str, plan: dict[str, Any]) -> int:
         ),
     )
     plan_id = cursor.lastrowid
+    existing_items = db.execute("SELECT COUNT(*) AS count FROM lifecycle_items WHERE account_plan_id = ?", (plan_id,)).fetchone()["count"]
+    if existing_items:
+        db.commit()
+        db.close()
+        return plan_id
     template_items = db.execute(
         "SELECT * FROM lifecycle_template_items WHERE lifecycle_template_id = ? ORDER BY sort_order",
         (template["id"],),

@@ -299,14 +299,14 @@ async function createAccountPlan(event) {
         await loadDashboard();
         if (result) {
             const itemCount = response.plan?.items?.length || 0;
-            result.innerHTML = `<strong>Created ${escapeHtml(response.plan.accountName)}.</strong> ${itemCount} lifecycle actions were generated from the ${escapeHtml(response.plan.templateName)} template.`;
+            result.innerHTML = `<strong>Created ${escapeHtml(response.plan.accountName)}.</strong> ${itemCount} lifecycle actions were generated from the ${escapeHtml(response.plan.templateName)} template. <a class="button secondary small" href="/account-plans/${response.plan.id}">Open Plan</a>`;
         }
     } catch (error) {
         errors.textContent = error.message;
     } finally {
         if (submitButton) {
             submitButton.disabled = false;
-            submitButton.textContent = "Create Account Plan";
+            submitButton.textContent = "Create Plan";
         }
     }
 }

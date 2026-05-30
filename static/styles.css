@@ -950,3 +950,72 @@ textarea {
     background: #dbeafe;
     color: #1d4ed8;
 }
+
+.modal {
+    align-items: center;
+    display: none;
+    inset: 0;
+    justify-content: center;
+    padding: 28px;
+    position: fixed;
+    z-index: 40;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(3px);
+    background: rgba(15, 39, 66, 0.42);
+    inset: 0;
+    position: absolute;
+}
+
+.modal-panel {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    max-height: 90vh;
+    max-width: 90vw;
+    overflow: auto;
+    padding: 24px;
+    position: relative;
+    width: min(860px, 90vw);
+}
+
+.create-plan-modal .account-plan-form {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.modal-actions {
+    align-items: center;
+    background: #fff;
+    border-top: 1px solid var(--grey-200);
+    bottom: -24px;
+    display: flex;
+    gap: 10px;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    margin: 8px -24px -24px;
+    padding: 16px 24px;
+    position: sticky;
+}
+
+@media (max-width: 760px) {
+    .modal {
+        align-items: stretch;
+        padding: 12px;
+    }
+
+    .modal-panel {
+        max-height: 94vh;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .create-plan-modal .account-plan-form {
+        grid-template-columns: 1fr;
+    }
+}

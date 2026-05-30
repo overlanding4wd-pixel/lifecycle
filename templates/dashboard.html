@@ -14,9 +14,9 @@
         </div>
     </section>
 
-    <aside class="drawer" data-create-plan-panel aria-hidden="true">
-        <div class="drawer-backdrop" data-cancel-create-plan></div>
-        <div class="drawer-panel narrow">
+    <aside class="modal" data-create-plan-panel aria-hidden="true" hidden>
+        <div class="modal-backdrop" data-cancel-create-plan></div>
+        <div class="modal-panel create-plan-modal">
         <div class="panel-header">
             <div>
                 <h2 data-create-plan-title>Create Account Plan</h2>
@@ -43,14 +43,16 @@
             </label>
             <label>
                 Target live date
-                <input type="date" name="targetGoLiveDate">
+                <input type="date" name="targetGoLiveDate" required>
             </label>
             <label>
                 Notes
                 <input name="notes" placeholder="Optional context">
             </label>
-            <button class="button primary" type="submit">Create Plan</button>
-            <button class="button ghost" type="button" data-cancel-create-plan>Cancel</button>
+            <div class="modal-actions">
+                <button class="button ghost" type="button" data-cancel-create-plan>Cancel</button>
+                <button class="button primary" type="submit">Create Plan</button>
+            </div>
         </form>
         <div class="form-errors" data-account-plan-errors></div>
         <div class="import-result" data-account-plan-result></div>

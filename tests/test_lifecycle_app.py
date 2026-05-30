@@ -393,6 +393,7 @@ class LifecycleAppTest(unittest.TestCase):
                 "accountType": "Direct Customer",
                 "planOwner": "Wade",
                 "kickOffDate": "2026-06-01",
+                "targetGoLiveDate": "2026-09-01",
             },
         )
         self.assertEqual(create_response.status_code, 201)
@@ -410,6 +411,7 @@ class LifecycleAppTest(unittest.TestCase):
                 "accountType": "Innovator",
                 "planOwner": "Mark",
                 "kickOffDate": "2026-06-01",
+                "targetGoLiveDate": "2026-09-01",
             },
         )
         self.assertEqual(create_response.status_code, 201)
@@ -463,6 +465,7 @@ class LifecycleAppTest(unittest.TestCase):
                 "accountType": "Innovator",
                 "planOwner": "Mark",
                 "kickOffDate": "2020-01-01",
+                "targetGoLiveDate": "2020-06-01",
             },
         ).get_json()["plan"]
         second = self.client.post(
@@ -472,6 +475,7 @@ class LifecycleAppTest(unittest.TestCase):
                 "accountType": "Innovator",
                 "planOwner": "Mark",
                 "kickOffDate": "2020-01-01",
+                "targetGoLiveDate": "2020-06-01",
             },
         ).get_json()["plan"]
 
@@ -556,6 +560,7 @@ class LifecycleAppTest(unittest.TestCase):
                 "accountType": "Innovator",
                 "planOwner": "Mark",
                 "kickOffDate": "2099-01-01",
+                "targetGoLiveDate": "2099-06-01",
             },
         ).get_json()["plan"]
         self.assertEqual(future["planStatus"], "Not Started")
@@ -601,6 +606,7 @@ class LifecycleAppTest(unittest.TestCase):
                 "accountType": "Innovator",
                 "planOwner": "Mark",
                 "kickOffDate": "2026-06-01",
+                "targetGoLiveDate": "2026-09-01",
             },
         ).get_json()["plan"]
         live_item = next(item for item in plan["items"] if item["activity"] == "Innovator Live")
@@ -633,6 +639,19 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertIn("badge-status-good", script)
         self.assertIn("data-status-preview", script)
         self.assertIn("select.hidden = true", script)
+
+    def test_account_plan_requires_target_live_date(self):
+        response = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Missing Target",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2026-06-01",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Target live date is required.", response.get_json()["errors"])
 
 
 if __name__ == "__main__":
