@@ -243,6 +243,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def partners_page() -> str:
         return render_template("partners.html", page_title="Master Partner Dashboard")
 
+    @app.route("/account-plans/<int:plan_id>")
+    def account_plan_page(plan_id: int) -> str:
+        return render_template("account_plan.html", page_title="Account Plan", plan_id=plan_id)
+
     @app.route("/admin")
     @role_required("admin")
     def admin_page() -> str:
@@ -359,6 +363,36 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             return jsonify({"error": "Account Plan not found."}), 404
         return jsonify({"plan": plan})
 
+    @app.put("/api/account-plans/<int:plan_id>")
+    @role_required("admin", "editor")
+    def update_account_plan_route(plan_id: int) -> Response:
+        payload = request.get_json(force=True)
+        db = get_db(app.config["DATABASE"])
+        existing = db.execute("SELECT * FROM account_plans WHERE id = ?", (plan_id,)).fetchone()
+        if not existing:
+            db.close()
+            return jsonify({"error": "Account Plan not found."}), 404
+        account_name = clean_text(payload.get("accountName") or payload.get("account_name") or existing["account_name"])
+        plan_owner = clean_text(payload.get("planOwner") or payload.get("plan_owner") or existing["plan_owner"])
+        kick_off_date = clean_date(payload.get("kickOffDate") or payload.get("kick_off_date")) or existing["kick_off_date"]
+        target_go_live_date = clean_date(payload.get("targetGoLiveDate") or payload.get("target_go_live_date")) or ""
+        notes = clean_text(payload.get("notes") if payload.get("notes") is not None else existing["notes"])
+        if not account_name or not plan_owner or not kick_off_date:
+            db.close()
+            return jsonify({"errors": ["Account name, plan owner, and kick-off date are required."]}), 400
+        db.execute(
+            """
+            UPDATE account_plans
+            SET account_name = ?, plan_owner = ?, kick_off_date = ?, target_go_live_date = ?,
+                notes = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (account_name, plan_owner, kick_off_date, target_go_live_date, notes, utc_now(), plan_id),
+        )
+        db.commit()
+        db.close()
+        return jsonify({"plan": get_account_plan(app.config["DATABASE"], plan_id)})
+
     @app.get("/api/account-plans/<int:plan_id>/items")
     def get_account_plan_items_route(plan_id: int) -> Response:
         return jsonify({"items": query_lifecycle_items(app.config["DATABASE"], plan_id)})
@@ -375,11 +409,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         db.execute(
             """
             UPDATE lifecycle_items
-            SET status = ?, responsible_party = ?, actual_start_date = ?, due_date = ?,
+            SET stage = ?, activity = ?, status = ?, responsible_party = ?, actual_start_date = ?, due_date = ?,
                 cortave_owner = ?, account_owner = ?, link = ?, notes = ?, updated_at = ?
             WHERE id = ?
             """,
             (
+                clean_text(payload.get("stage") or existing["stage"]),
+                clean_text(payload.get("activity") or existing["activity"]),
                 clean_text(payload.get("status") or existing["status"]),
                 clean_text(payload.get("responsibleParty") or payload.get("responsible_party") or existing["responsible_party"]),
                 clean_date(payload.get("actualStartDate") or payload.get("actual_start_date")) or existing["actual_start_date"],

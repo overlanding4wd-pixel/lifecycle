@@ -849,3 +849,21 @@ textarea {
 .template-table {
     min-width: 760px;
 }
+
+.account-plan-detail-form {
+    max-width: 980px;
+}
+
+.lifecycle-item-table {
+    min-width: 1700px;
+}
+
+.lifecycle-item-table input,
+.lifecycle-item-table select,
+.lifecycle-item-table textarea {
+    min-width: 120px;
+}
+
+.lifecycle-item-table textarea[name="activity"] {
+    min-width: 260px;
+}

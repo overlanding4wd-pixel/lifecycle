@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section data-page="account-plan" data-plan-id="{{ plan_id }}">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Account Plan</p>
+                <h2 data-plan-title>Loading plan...</h2>
+                <p data-plan-subtitle>View and edit the Account Plan and its Lifecycle Items.</p>
+            </div>
+            <a class="button secondary" href="{{ url_for('dashboard') }}">Back to Master Dashboard</a>
+        </div>
+
+        <form class="record-form account-plan-detail-form" data-account-plan-detail-form>
+            <div class="form-grid">
+                <label>
+                    Account name
+                    <input name="accountName" required>
+                </label>
+                <label>
+                    Account type
+                    <input name="accountType" readonly>
+                </label>
+            </div>
+            <div class="form-grid">
+                <label>
+                    Plan owner
+                    <input name="planOwner" required>
+                </label>
+                <label>
+                    Kick-off date
+                    <input type="date" name="kickOffDate" required>
+                </label>
+                <label>
+                    Target go-live date
+                    <input type="date" name="targetGoLiveDate">
+                </label>
+            </div>
+            <label>
+                Notes
+                <textarea name="notes" rows="3"></textarea>
+            </label>
+            <div class="drawer-actions">
+                <button class="button primary" type="submit">Save Account Plan</button>
+                <span class="muted" data-plan-save-result></span>
+            </div>
+            <div class="form-errors" data-plan-errors></div>
+        </form>
+    </div>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Lifecycle Items</h2>
+                <p>These actions were copied from the plan's Lifecycle Template and can be edited for this account.</p>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table lifecycle-item-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Stage</th>
+                        <th>Activity</th>
+                        <th>Status</th>
+                        <th>Responsible</th>
+                        <th>Start offset</th>
+                        <th>Actual start</th>
+                        <th>Due offset</th>
+                        <th>Due date</th>
+                        <th>cortave Owner</th>
+                        <th>Account Owner</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody data-lifecycle-item-table></tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}

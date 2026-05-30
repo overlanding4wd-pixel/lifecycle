@@ -401,6 +401,59 @@ class LifecycleAppTest(unittest.TestCase):
         self.assertIn("customer Live", activities)
         self.assertNotIn("Innovator signs agreement", activities)
 
+    def test_account_plan_detail_page_and_editing(self):
+        create_response = self.client.post(
+            "/api/account-plans",
+            json={
+                "accountName": "Editable Plan",
+                "accountType": "Innovator",
+                "planOwner": "Mark",
+                "kickOffDate": "2026-06-01",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        plan_id = create_response.get_json()["id"]
+
+        page_response = self.client.get(f"/account-plans/{plan_id}")
+        self.assertEqual(page_response.status_code, 200)
+        self.assertIn(b"Lifecycle Items", page_response.data)
+
+        update_response = self.client.put(
+            f"/api/account-plans/{plan_id}",
+            json={
+                "accountName": "Editable Plan Updated",
+                "planOwner": "Melissa",
+                "kickOffDate": "2026-06-02",
+                "targetGoLiveDate": "2026-08-01",
+                "notes": "Updated notes",
+            },
+        )
+        self.assertEqual(update_response.status_code, 200)
+        updated_plan = update_response.get_json()["plan"]
+        self.assertEqual(updated_plan["accountName"], "Editable Plan Updated")
+        self.assertEqual(updated_plan["planOwner"], "Melissa")
+
+        items = self.client.get(f"/api/account-plans/{plan_id}/items").get_json()["items"]
+        update_item_response = self.client.put(
+            f"/api/lifecycle-items/{items[0]['id']}",
+            json={
+                "stage": "I0",
+                "activity": "Edited lifecycle action",
+                "status": "In Progress",
+                "responsibleParty": "Mark",
+                "actualStartDate": "2026-06-03",
+                "dueDate": "2026-06-04",
+                "cortaveOwner": "Mark",
+                "accountOwner": "Innovator",
+                "notes": "Edited item notes",
+            },
+        )
+        self.assertEqual(update_item_response.status_code, 200)
+        updated_item = self.client.get(f"/api/account-plans/{plan_id}/items").get_json()["items"][0]
+        self.assertEqual(updated_item["activity"], "Edited lifecycle action")
+        self.assertEqual(updated_item["status"], "In Progress")
+        self.assertEqual(updated_item["dueDate"], "2026-06-04")
+
 
 if __name__ == "__main__":
     unittest.main()

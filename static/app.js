@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (page === "settings") initSettings();
     if (page === "import-export") initImportExport();
     if (page === "partners") initPartnerDashboard();
+    if (page === "account-plan") initAccountPlanDetail();
     if (document.querySelector("[data-linked-partner-panel]")) initLinkedPartnerPanel();
 });
 
@@ -67,6 +68,96 @@ function initDashboard() {
 }
 
 
+
+async function initAccountPlanDetail() {
+    const page = document.querySelector("[data-page='account-plan']");
+    if (!page) return;
+    lifecycle.planId = page.dataset.planId;
+    document.querySelector("[data-account-plan-detail-form]").addEventListener("submit", saveAccountPlanDetail);
+    await loadAccountPlanDetail();
+}
+
+async function loadAccountPlanDetail() {
+    const data = await api(`/api/account-plans/${lifecycle.planId}`);
+    const plan = data.plan;
+    document.querySelector("[data-plan-title]").textContent = plan.accountName;
+    document.querySelector("[data-plan-subtitle]").textContent = `${plan.accountType} · ${plan.templateName} · ${plan.completedItems}/${plan.totalItems} complete`;
+    const form = document.querySelector("[data-account-plan-detail-form]");
+    form.elements.accountName.value = plan.accountName || "";
+    form.elements.accountType.value = plan.accountType || "";
+    form.elements.planOwner.value = plan.planOwner || "";
+    form.elements.kickOffDate.value = plan.kickOffDate || "";
+    form.elements.targetGoLiveDate.value = plan.targetGoLiveDate || "";
+    form.elements.notes.value = plan.notes || "";
+    renderLifecycleItems(plan.items || []);
+}
+
+async function saveAccountPlanDetail(event) {
+    event.preventDefault();
+    const errors = document.querySelector("[data-plan-errors]");
+    const result = document.querySelector("[data-plan-save-result]");
+    errors.textContent = "";
+    result.textContent = "";
+    const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+        await api(`/api/account-plans/${lifecycle.planId}`, { method: "PUT", body: JSON.stringify(payload) });
+        result.textContent = "Saved.";
+        await loadAccountPlanDetail();
+    } catch (error) {
+        errors.textContent = error.message;
+    }
+}
+
+function renderLifecycleItems(items) {
+    const target = document.querySelector("[data-lifecycle-item-table]");
+    target.innerHTML = items.map((item) => `
+        <tr class="${item.isOverdue ? "overdue" : ""}" data-lifecycle-item-row="${item.id}">
+            <td>${item.sortOrder}</td>
+            <td><input name="stage" value="${escapeHtml(item.stage)}"></td>
+            <td><textarea name="activity" rows="2">${escapeHtml(item.activity)}</textarea></td>
+            <td><select name="status" data-status-value="${escapeHtml(item.status)}"></select></td>
+            <td><input name="responsibleParty" value="${escapeHtml(item.responsibleParty)}"></td>
+            <td>${item.startDayOffset ?? ""}</td>
+            <td><input type="date" name="actualStartDate" value="${escapeHtml(item.actualStartDate)}"></td>
+            <td>${item.targetDueDayOffset ?? ""}</td>
+            <td><input type="date" name="dueDate" value="${escapeHtml(item.dueDate)}"></td>
+            <td><input name="cortaveOwner" value="${escapeHtml(item.cortaveOwner)}"></td>
+            <td><input name="accountOwner" value="${escapeHtml(item.accountOwner)}"></td>
+            <td><textarea name="notes" rows="2">${escapeHtml(item.notes)}</textarea></td>
+            <td><button class="button secondary small" data-save-lifecycle-item="${item.id}">Save</button></td>
+        </tr>
+    `).join("") || `<tr><td colspan="13">No Lifecycle Items found for this Account Plan.</td></tr>`;
+    target.querySelectorAll("select[name='status']").forEach((select) => {
+        (lifecycle.options.status || []).forEach((status) => {
+            const option = document.createElement("option");
+            option.value = status.value;
+            option.textContent = status.label || status.value;
+            select.appendChild(option);
+        });
+        select.value = select.dataset.statusValue;
+    });
+    target.querySelectorAll("[data-save-lifecycle-item]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const row = button.closest("[data-lifecycle-item-row]");
+            const payload = {};
+            row.querySelectorAll("input, select, textarea").forEach((field) => {
+                payload[field.name] = field.value;
+            });
+            button.disabled = true;
+            button.textContent = "Saving...";
+            try {
+                await api(`/api/lifecycle-items/${button.dataset.saveLifecycleItem}`, { method: "PUT", body: JSON.stringify(payload) });
+                button.textContent = "Saved";
+                setTimeout(() => { button.textContent = "Save"; button.disabled = false; }, 900);
+            } catch (error) {
+                alert(error.message);
+                button.textContent = "Save";
+                button.disabled = false;
+            }
+        });
+    });
+}
+
 async function createAccountPlan(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -109,7 +200,7 @@ async function loadAccountPlans() {
     renderAccountPlanMetrics(data.summary || {});
     table.innerHTML = data.plans.length ? data.plans.map((plan) => `
         <tr class="${plan.isAtRisk ? "overdue" : ""}">
-            <td><strong>${escapeHtml(plan.accountName)}</strong><br><span class="muted">${escapeHtml(plan.notes || "")}</span></td>
+            <td><a class="link-button" href="/account-plans/${plan.id}">${escapeHtml(plan.accountName)}</a><br><span class="muted">${escapeHtml(plan.notes || "")}</span></td>
             <td>${accountTypeBadge(plan.accountType)}</td>
             <td>${escapeHtml(plan.planOwner)}</td>
             <td>${escapeHtml(plan.templateName)}</td>
