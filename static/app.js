@@ -171,15 +171,33 @@ function renderPlanHeader(plan) {
 function populateRelationshipBrief(plan) {
     const form = document.querySelector("[data-relationship-brief-form]");
     if (!form) return;
+    form.elements.companyName.value = plan.companyName || plan.accountName || "";
     form.elements.companyWebsiteUrl.value = plan.companyWebsiteUrl || "";
-    form.elements.companyLinkedinUrl.value = plan.companyLinkedinUrl || "";
+    form.elements.companyLinkedInUrl.value = plan.companyLinkedInUrl || plan.companyLinkedinUrl || "";
+    form.elements.companyIndustry.value = plan.companyIndustry || "";
+    form.elements.companyLocation.value = plan.companyLocation || "";
+    form.elements.companySize.value = plan.companySize || "";
     form.elements.keyContactName.value = plan.keyContactName || "";
     form.elements.keyContactJobTitle.value = plan.keyContactJobTitle || "";
     form.elements.keyContactEmail.value = plan.keyContactEmail || "";
-    form.elements.keyContactLinkedinUrl.value = plan.keyContactLinkedinUrl || "";
+    form.elements.keyContactLinkedInUrl.value = plan.keyContactLinkedInUrl || plan.keyContactLinkedinUrl || "";
+    form.elements.keyContactRole.value = plan.keyContactRole || "";
     form.elements.relationshipContext.value = plan.relationshipContext || "";
     form.elements.relationshipDetailedNotes.value = plan.relationshipDetailedNotes || "";
+    form.elements.cortaveValueProposition.value = plan.cortaveValueProposition || "";
+    form.elements.possibleUseCase.value = plan.possibleUseCase || "";
+    form.elements.suggestedNextStep.value = plan.suggestedNextStep || "";
     form.elements.meetingBriefNotes.value = plan.meetingBriefNotes || "";
+    form.elements.detailedNotes.value = plan.detailedNotes || "";
+    renderSavedLink("[data-company-website-link]", plan.companyWebsiteUrl, "Open company website");
+    renderSavedLink("[data-company-linkedin-link]", plan.companyLinkedInUrl || plan.companyLinkedinUrl, "Open company LinkedIn");
+    renderSavedLink("[data-key-contact-linkedin-link]", plan.keyContactLinkedInUrl || plan.keyContactLinkedinUrl, "Open contact LinkedIn");
+}
+
+function renderSavedLink(selector, value, label) {
+    const target = document.querySelector(selector);
+    if (!target) return;
+    target.innerHTML = value ? `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>` : "";
 }
 
 async function saveRelationshipBrief(event) {

@@ -681,28 +681,51 @@ class LifecycleAppTest(unittest.TestCase):
         response = self.client.put(
             f"/api/account-plans/{plan['id']}",
             json={
+                "companyName": "Example Co",
                 "companyWebsiteUrl": "https://example.com",
-                "companyLinkedinUrl": "https://linkedin.com/company/example",
+                "companyLinkedInUrl": "https://linkedin.com/company/example",
+                "companyIndustry": "AI Services",
+                "companyLocation": "Atlanta",
+                "companySize": "250 employees",
                 "keyContactName": "Jane Doe",
                 "keyContactJobTitle": "VP Partnerships",
                 "keyContactEmail": "jane@example.com",
-                "keyContactLinkedinUrl": "https://linkedin.com/in/janedoe",
+                "keyContactLinkedInUrl": "https://linkedin.com/in/janedoe",
+                "keyContactRole": "Economic buyer",
                 "relationshipContext": "Existing partner contact",
-                "relationshipDetailedNotes": "Detailed relationship notes",
+                "cortaveValueProposition": "Efficient activation",
+                "possibleUseCase": "Partner launch support",
+                "suggestedNextStep": "Schedule discovery",
+                "relationshipDetailedNotes": "Why relevant notes",
+                "detailedNotes": "Detailed relationship notes",
                 "meetingBriefNotes": "Meeting brief notes",
             },
         )
         self.assertEqual(response.status_code, 200)
 
         refreshed = self.client.get(f"/api/account-plans/{plan['id']}").get_json()["plan"]
+        self.assertEqual(refreshed["companyName"], "Example Co")
         self.assertEqual(refreshed["companyWebsiteUrl"], "https://example.com")
+        self.assertEqual(refreshed["companyLinkedInUrl"], "https://linkedin.com/company/example")
+        self.assertEqual(refreshed["companyIndustry"], "AI Services")
+        self.assertEqual(refreshed["companyLocation"], "Atlanta")
+        self.assertEqual(refreshed["companySize"], "250 employees")
         self.assertEqual(refreshed["keyContactName"], "Jane Doe")
-        self.assertEqual(refreshed["relationshipDetailedNotes"], "Detailed relationship notes")
+        self.assertEqual(refreshed["keyContactLinkedInUrl"], "https://linkedin.com/in/janedoe")
+        self.assertEqual(refreshed["keyContactRole"], "Economic buyer")
+        self.assertEqual(refreshed["relationshipContext"], "Existing partner contact")
+        self.assertEqual(refreshed["cortaveValueProposition"], "Efficient activation")
+        self.assertEqual(refreshed["possibleUseCase"], "Partner launch support")
+        self.assertEqual(refreshed["suggestedNextStep"], "Schedule discovery")
+        self.assertEqual(refreshed["detailedNotes"], "Detailed relationship notes")
         self.assertEqual(refreshed["meetingBriefNotes"], "Meeting brief notes")
 
         page = self.client.get(f"/plans/{plan['id']}")
         self.assertEqual(page.status_code, 200)
         self.assertIn(b"Relationship Brief", page.data)
+        self.assertIn(b"Company details", page.data)
+        self.assertIn(b"Key contact details", page.data)
+        self.assertIn(b"Potential Cortave value proposition", page.data)
         self.assertNotIn(b"Generate", page.data)
 
 

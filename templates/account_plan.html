@@ -54,23 +54,53 @@
         <div class="panel-header">
             <div>
                 <h2>Relationship Brief</h2>
-                <p>Manual research details for this account. AI generation will be added later.</p>
+                <p>Manual company, contact, and relationship context for this plan. AI generation will be added later.</p>
             </div>
         </div>
         <form class="record-form relationship-brief-form" data-relationship-brief-form>
-            <div class="form-grid">
-                <label>Company website URL<input name="companyWebsiteUrl" type="url" placeholder="https://..."></label>
-                <label>Company LinkedIn URL<input name="companyLinkedinUrl" type="url" placeholder="https://www.linkedin.com/company/..."></label>
+            <div class="relationship-brief-grid">
+                <div class="relationship-column">
+                    <h3>Company details</h3>
+                    <label>Company name<input name="companyName"></label>
+                    <label>Company website URL<input name="companyWebsiteUrl" type="url" placeholder="https://..."></label>
+                    <div class="saved-link" data-company-website-link></div>
+                    <label>Company LinkedIn URL<input name="companyLinkedInUrl" type="url" placeholder="https://www.linkedin.com/company/..."></label>
+                    <div class="saved-link" data-company-linkedin-link></div>
+                    <label>Industry / market<input name="companyIndustry"></label>
+                    <label>Company location<input name="companyLocation"></label>
+                    <label>Company size, if known<input name="companySize"></label>
+
+                    <h3>Key contact details</h3>
+                    <label>Key contact name<input name="keyContactName"></label>
+                    <label>Key contact job title<input name="keyContactJobTitle"></label>
+                    <label>Key contact email<input name="keyContactEmail" type="email"></label>
+                    <label>Key contact LinkedIn profile URL<input name="keyContactLinkedInUrl" type="url" placeholder="https://www.linkedin.com/in/..."></label>
+                    <div class="saved-link" data-key-contact-linkedin-link></div>
+                    <label>Contact role in relationship
+                        <select name="keyContactRole">
+                            <option value="">Unknown</option>
+                            <option value="Economic buyer">Economic buyer</option>
+                            <option value="Technical buyer">Technical buyer</option>
+                            <option value="Influencer">Influencer</option>
+                            <option value="Partner owner">Partner owner</option>
+                            <option value="Operator">Operator</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="relationship-column">
+                    <h3>Relationship context</h3>
+                    <label>Existing relationship notes<textarea name="relationshipContext" rows="4"></textarea></label>
+                    <label>Why this account may be relevant to Cortave<textarea name="relationshipDetailedNotes" rows="4"></textarea></label>
+                    <label>Potential Cortave value proposition<textarea name="cortaveValueProposition" rows="4"></textarea></label>
+                    <label>Possible use case<textarea name="possibleUseCase" rows="4"></textarea></label>
+                    <label>Suggested next step<textarea name="suggestedNextStep" rows="3"></textarea></label>
+                    <label>Meeting brief notes<textarea name="meetingBriefNotes" rows="4"></textarea></label>
+                    <label>Detailed notes<textarea name="detailedNotes" rows="5"></textarea></label>
+                </div>
             </div>
-            <div class="form-grid">
-                <label>Key contact name<input name="keyContactName"></label>
-                <label>Key contact job title<input name="keyContactJobTitle"></label>
-                <label>Key contact email<input name="keyContactEmail" type="email"></label>
-                <label>Key contact LinkedIn profile URL<input name="keyContactLinkedinUrl" type="url" placeholder="https://www.linkedin.com/in/..."></label>
-            </div>
-            <label>Existing relationship context<textarea name="relationshipContext" rows="3"></textarea></label>
-            <label>Detailed notes<textarea name="relationshipDetailedNotes" rows="4"></textarea></label>
-            <label>Meeting brief notes<textarea name="meetingBriefNotes" rows="4"></textarea></label>
+
             <div class="drawer-actions">
                 <button class="button primary" type="submit">Save Relationship Brief</button>
                 <span class="muted" data-relationship-save-result></span>
