@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="login-panel">
+    <div class="panel narrow-panel">
+        <div class="panel-header">
+            <div>
+                <h2>Sign in</h2>
+                <p>Select an MVP role to preview access controls.</p>
+            </div>
+        </div>
+        <form method="post" class="record-form">
+            <label>
+                Name
+                <input name="name" placeholder="Your name">
+            </label>
+            <label>
+                Role
+                <select name="role">
+                    {% for label, value in roles.items() %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button class="button primary" type="submit">Continue</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

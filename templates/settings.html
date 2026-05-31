@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section data-page="settings">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Data validation settings</h2>
+                <p>Manage dropdown lists and badge colours that replace hidden workbook validation and conditional formatting rules.</p>
+            </div>
+        </div>
+        <div class="settings-grid">
+            {% for category, title in [('status', 'Status options and colours'), ('stage', 'Stage options'), ('owner', 'Owners'), ('priority', 'Priority options')] %}
+            <section class="settings-card" data-option-category="{{ category }}">
+                <div class="settings-card-header">
+                    <h3>{{ title }}</h3>
+                    <button class="button secondary small" data-add-option="{{ category }}">Add</button>
+                </div>
+                <div class="option-list" data-option-list="{{ category }}"></div>
+            </section>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="panel" data-template-settings>
+        <div class="panel-header">
+            <div>
+                <h2>Lifecycle Templates</h2>
+                <p>Edit the default Innovator Journey and Direct Customer Journey template items used when creating Account Plans.</p>
+            </div>
+        </div>
+        <div class="two-column" data-template-list></div>
+    </div>
+
+    <aside class="drawer" data-option-drawer aria-hidden="true">
+        <div class="drawer-backdrop" data-close-option-drawer></div>
+        <div class="drawer-panel narrow">
+            <div class="drawer-header">
+                <div>
+                    <p class="eyebrow">Settings</p>
+                    <h2 data-option-title>Option</h2>
+                </div>
+                <button class="icon-button" data-close-option-drawer aria-label="Close">×</button>
+            </div>
+            <form data-option-form class="record-form">
+                <input type="hidden" name="id">
+                <input type="hidden" name="category">
+                <label>
+                    Value *
+                    <input name="value" required>
+                </label>
+                <label>
+                    Label
+                    <input name="label">
+                </label>
+                <label>
+                    Colour
+                    <input name="color" type="color" value="#1f4e79">
+                </label>
+                <label>
+                    Sort order
+                    <input name="sortOrder" type="number" min="0" step="1" value="100">
+                </label>
+                <div class="form-errors" data-option-errors></div>
+                <div class="drawer-actions">
+                    <button class="button primary" type="submit">Save option</button>
+                    <button class="button ghost" type="button" data-close-option-drawer>Cancel</button>
+                    <button class="button danger" type="button" data-delete-option hidden>Remove</button>
+                </div>
+            </form>
+        </div>
+    </aside>
+</section>
+{% endblock %}

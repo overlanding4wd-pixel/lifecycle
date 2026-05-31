@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="dashboard" data-page="dashboard">
+    <section class="dashboard-hero panel">
+        <div>
+            <p class="eyebrow">Lifecycle Tracker</p>
+            <h2>Partner & Customer Activation Portfolio</h2>
+            <p>Track Innovator / Partner Plans and Direct Customer Plans from first engagement through live or qualified out.</p>
+        </div>
+        <div class="actions">
+            <button class="button primary" data-create-plan-type="Innovator">Create Innovator Plan</button>
+            <button class="button secondary" data-create-plan-type="Direct Customer">Create Direct Customer Plan</button>
+        </div>
+    </section>
+
+    <aside class="modal" data-create-plan-panel aria-hidden="true" hidden>
+        <div class="modal-backdrop" data-cancel-create-plan></div>
+        <div class="modal-panel create-plan-modal">
+        <div class="panel-header">
+            <div>
+                <h2 data-create-plan-title>Create Account Plan</h2>
+                <p data-create-plan-help>The default lifecycle items will be seeded automatically from the selected template.</p>
+            </div>
+        </div>
+        <form class="filters account-plan-form" data-account-plan-form>
+            <input type="hidden" name="accountType">
+            <label>
+                <span data-account-name-label>Account name</span>
+                <input name="accountName" required placeholder="Name">
+            </label>
+            <label>
+                Owner
+                <input name="planOwner" required placeholder="Owner">
+            </label>
+            <label>
+                Territory
+                <input name="territory" placeholder="Optional territory">
+            </label>
+            <label>
+                Start / kick-off date
+                <input type="date" name="kickOffDate" required>
+            </label>
+            <label>
+                Target live date
+                <input type="date" name="targetGoLiveDate" required>
+            </label>
+            <label>
+                Notes
+                <input name="notes" placeholder="Optional context">
+            </label>
+            <div class="modal-actions">
+                <button class="button ghost" type="button" data-cancel-create-plan>Cancel</button>
+                <button class="button primary" type="submit">Create Plan</button>
+            </div>
+        </form>
+        <div class="form-errors" data-account-plan-errors></div>
+        <div class="import-result" data-account-plan-result></div>
+        </div>
+    </aside>
+
+    <div class="card-grid metric-grid account-plan-metrics">
+        <div class="metric-card"><span>Total Active Plans</span><strong data-plan-metric="totalActivePlans">0</strong></div>
+        <div class="metric-card"><span>Innovators</span><strong data-plan-metric="totalInnovators">0</strong></div>
+        <div class="metric-card"><span>Direct Customers</span><strong data-plan-metric="totalDirectCustomers">0</strong></div>
+        <div class="metric-card"><span>Next Actions Due</span><strong data-plan-metric="nextActionsDue">0</strong></div>
+        <div class="metric-card"><span>Overdue</span><strong data-plan-metric="overduePlans">0</strong></div>
+        <div class="metric-card"><span>Live</span><strong data-plan-metric="live">0</strong></div>
+        <div class="metric-card"><span>Qualified Out</span><strong data-plan-metric="qualifiedOut">0</strong></div>
+        <div class="metric-card"><span>On Hold</span><strong data-plan-metric="onHold">0</strong></div>
+    </div>
+
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Plans Needing Attention</h2>
+                <p>Overdue, on hold, blocked, missing next step owner, or target live date within 14 days.</p>
+            </div>
+        </div>
+        <div class="attention-list" data-attention-plans></div>
+    </section>
+
+    <section class="panel" id="plans">
+        <div class="panel-header">
+            <div>
+                <h2>Active Plans</h2>
+                <p>Portfolio view of all Innovators and Direct Customers currently being worked.</p>
+            </div>
+        </div>
+
+        <form class="filters portfolio-filters" data-account-plan-filters>
+            <label class="filter-search">Search<input name="search" placeholder="Name, owner, next step"></label>
+            <label class="filter-type">Type<select name="accountType"><option value="">All</option><option value="Innovator">Innovator</option><option value="Direct Customer">Direct Customer</option></select></label>
+            <label class="filter-stage">Stage<select name="stage" data-plan-stage-filter><option value="">All stages</option></select></label>
+            <label class="filter-status">Status<select name="status"><option value="">All</option><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option><option value="Live">Live</option><option value="Qualified Out">Qualified Out</option></select></label>
+            <label class="filter-health">Health<select name="health"><option value="">All</option><option value="Strong">Strong</option><option value="Good">Good</option><option value="At Risk">At Risk</option><option value="Bad">Bad</option><option value="N/A">N/A</option></select></label>
+            <label class="filter-owner">Owner<input name="owner" placeholder="Owner"></label>
+            <label class="checkbox-label filter-overdue"><input type="checkbox" name="overdue" value="true">Overdue only</label>
+            <label class="filter-sort">Sort by<select name="sort"><option value="nextDueDate">Next due date</option><option value="daysOverdue">Days overdue</option><option value="stage">Stage</option><option value="owner">Owner</option><option value="type">Type</option></select></label>
+            <button class="button primary filter-apply" type="submit">Apply</button>
+            <button class="button secondary filter-reset" type="button" data-reset-plan-filters>Reset</button>
+        </form>
+
+        <div class="table-wrap">
+            <table class="data-table active-plans-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Owner</th>
+                        <th>Current Stage</th>
+                        <th>Status</th>
+                        <th>Health</th>
+                        <th>Next Step</th>
+                        <th>Next Step Owner</th>
+                        <th>Next Due Date</th>
+                        <th>Days Overdue</th>
+                        <th>Target Live Date</th>
+                        <th>Last Updated</th>
+                        <th>Open Plan</th>
+                    </tr>
+                </thead>
+                <tbody data-account-plan-table></tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}

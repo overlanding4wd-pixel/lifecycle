@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }} | Lifecycle Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ asset_version }}">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">LT</div>
+                <div>
+                    <strong>Lifecycle Tracker</strong>
+                    <span>Account plan portfolio</span>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Master Dashboard</a>
+                <a href="{{ url_for('dashboard') }}#plans">Plans</a>
+                {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('settings_page') }}#templates" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Templates</a>
+                <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Settings</a>
+                <a href="{{ url_for('import_export_page') }}" class="{{ 'active' if request.endpoint == 'import_export_page' else '' }}">Import / Export</a>
+                <a href="{{ url_for('admin_page') }}" class="{{ 'active' if request.endpoint == 'admin_page' else '' }}">Admin</a>
+                {% endif %}
+            </nav>
+        </aside>
+        <main class="main">
+            <header class="topbar">
+                <div class="topbar-brand">
+                    <div>
+                        <p class="eyebrow">Lifecycle Tracker</p>
+                        <h1>{{ page_title }}</h1>
+                    </div>
+                </div>
+                <div class="user-menu">
+                    <span>{{ current_user.name }} · {{ current_user.role|title }}</span>
+                    <a class="button ghost" href="{{ url_for('login') }}">Switch role</a>
+                    <form action="{{ url_for('logout') }}" method="post">
+                        <button class="button ghost" type="submit">Sign out</button>
+                    </form>
+                </div>
+            </header>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-list">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        window.lifecycleUser = {{ current_user|tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_version }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section data-page="partners">
+    <div class="card-grid metric-grid partner-metrics">
+        <div class="metric-card"><span>Total partners</span><strong data-partner-metric="totalPartners">0</strong></div>
+        <div class="metric-card"><span>Overdue partners</span><strong data-partner-metric="overduePartners">0</strong></div>
+        <div class="metric-card"><span>Linked lifecycle workbooks</span><strong data-partner-metric="withLifecycleWorkbook">0</strong></div>
+        <div class="metric-card"><span>Without lifecycle workbook</span><strong data-partner-metric="withoutLifecycleWorkbook">0</strong></div>
+        <div class="metric-card"><span>Qualified out partners</span><strong data-partner-metric="qualifiedOutPartners">0</strong></div>
+        <div class="metric-card"><span>Active partners</span><strong data-partner-metric="activePartners">0</strong></div>
+    </div>
+
+    <div class="three-column">
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Partners by stage</h2>
+                    <p>Current master stage from the Partners sheet.</p>
+                </div>
+            </div>
+            <div class="summary-list" data-partner-stage-summary></div>
+        </section>
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Partners by owner</h2>
+                    <p>Owner distribution from the master dashboard.</p>
+                </div>
+            </div>
+            <div class="summary-list" data-partner-owner-summary></div>
+        </section>
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Partners by territory</h2>
+                    <p>Territory distribution from the master dashboard.</p>
+                </div>
+            </div>
+            <div class="summary-list" data-partner-territory-summary></div>
+        </section>
+    </div>
+
+
+    <section class="panel org-impact-panel">
+        <div class="panel-header">
+            <div>
+                <h2>Org Impact</h2>
+                <p>Estimated organizational time and cost impact from the Partner Dashboard Org Impact sheet.</p>
+            </div>
+            <span class="muted" data-org-impact-imported></span>
+        </div>
+
+        <div class="card-grid metric-grid org-impact-metrics">
+            <div class="metric-card"><span>Total partner stages counted</span><strong data-org-metric="countInStage">0</strong></div>
+            <div class="metric-card"><span>Total estimated hours</span><strong data-org-metric="totalHours">0</strong></div>
+            <div class="metric-card"><span>Total estimated days</span><strong data-org-metric="totalDays">0</strong></div>
+            <div class="metric-card"><span>Total estimated years</span><strong data-org-metric="totalYears">0</strong></div>
+        </div>
+
+        <div class="two-column">
+            <div>
+                <h3>Summary by stage</h3>
+                <div class="table-wrap">
+                    <table class="data-table compact">
+                        <thead>
+                            <tr>
+                                <th>Stage</th>
+                                <th># In Stage</th>
+                                <th>Total Hours</th>
+                                <th>Total Days</th>
+                                <th>Total Years</th>
+                            </tr>
+                        </thead>
+                        <tbody data-org-summary-table></tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Parameters</h3>
+                <div class="summary-list" data-org-parameters></div>
+            </div>
+        </div>
+
+        <div class="two-column">
+            <div>
+                <h3>Base assumptions: days per partner by team</h3>
+                <div class="table-wrap">
+                    <table class="data-table compact org-impact-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Recruitment</th>
+                                <th>On Boarding</th>
+                                <th>Active</th>
+                            </tr>
+                        </thead>
+                        <tbody data-org-assumptions-table></tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Estimated averages: hours per partner by team</h3>
+                <div class="table-wrap">
+                    <table class="data-table compact org-impact-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Recruitment</th>
+                                <th>On Boarding</th>
+                                <th>Active</th>
+                            </tr>
+                        </thead>
+                        <tbody data-org-averages-table></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>Master partner records</h2>
+                <p>Search and filter imported Partner Dashboard records. Lifecycle data remains separate.</p>
+            </div>
+        </div>
+
+        <form class="filters partner-filters" data-partner-filters>
+            <label>
+                Search
+                <input type="search" name="search" placeholder="Partner, owner, account, notes">
+            </label>
+            <label>
+                Owner
+                <select name="owner" data-partner-filter-options="owners">
+                    <option value="">All owners</option>
+                </select>
+            </label>
+            <label>
+                Territory
+                <select name="territory" data-partner-filter-options="territories">
+                    <option value="">All territories</option>
+                </select>
+            </label>
+            <label>
+                Master stage
+                <select name="masterStage" data-partner-filter-options="stages">
+                    <option value="">All stages</option>
+                </select>
+            </label>
+            <label>
+                Partner type
+                <select name="partnerType" data-partner-filter-options="partnerTypes">
+                    <option value="">All types</option>
+                </select>
+            </label>
+            <label>
+                CSM involved
+                <select name="csmInvolved" data-partner-filter-options="csmInvolved">
+                    <option value="">All CSM values</option>
+                </select>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="overdue" value="true">
+                Overdue only
+            </label>
+            <button class="button secondary" type="submit">Apply filters</button>
+            <button class="button ghost" type="button" data-reset-partner-filters>Reset</button>
+        </form>
+
+        <div class="table-wrap">
+            <table class="data-table partner-table">
+                <thead>
+                    <tr>
+                        <th><button data-partner-sort="partnerName">Partner</button></th>
+                        <th>Owner</th>
+                        <th>Territory</th>
+                        <th><button data-partner-sort="masterStage">Master stage</button></th>
+                        <th><button data-partner-sort="dateOfStageChange">Stage change</button></th>
+                        <th>Age</th>
+                        <th><button data-partner-sort="daysOverdue">Days overdue</button></th>
+                        <th>SF Account</th>
+                        <th>Partner type</th>
+                        <th>CSM involved</th>
+                        <th>Workbook link</th>
+                        <th>Lifecycle</th>
+                    </tr>
+                </thead>
+                <tbody data-partner-table></tbody>
+            </table>
+        </div>
+        <p class="empty-state" data-empty-partners hidden>No partners match the current filters.</p>
+    </section>
+</section>
+{% endblock %}
